@@ -510,18 +510,8 @@
       btn.textContent = '🎤';
     }
 
-    recognition.addEventListener('result', function (e) {
-      input.value = e.results[0][0].transcript.trim();
-      input.focus();
-    });
-    recognition.addEventListener('end', reset);
-    recognition.addEventListener('error', reset);
-
-    btn.addEventListener('click', function () {
-      if (recognizing) {
-        recognition.stop();
-        return;
-      }
+    function start() {
+      if (recognizing) return;
       recognizing = true;
       btn.classList.add('primary');
       btn.textContent = '⏺';
@@ -530,7 +520,57 @@
       } catch (err) {
         reset();
       }
+    }
+
+    function stop() {
+      if (!recognizing) return;
+      recognition.stop();
+    }
+
+    recognition.addEventListener('result', function (e) {
+      input.value = e.results[0][0].transcript.trim();
+      input.focus();
     });
+    recognition.addEventListener('end', reset);
+    recognition.addEventListener('error', reset);
+
+    btn.addEventListener('click', function () {
+      if (recognizing) { stop(); } else { start(); }
+    });
+
+    // Long-press Space, as a hands-off alternative to clicking the mic —
+    // labeling is a high-repetition task, so reaching for the mouse per
+    // name adds up. A quick tap types a normal space as usual (not
+    // prevented — whether it turns out to be a long press isn't known
+    // yet at keydown time, and it doesn't matter: a stray space typed
+    // during the hold is overwritten anyway once the 'result' listener
+    // above replaces the whole field value). Only a hold past the
+    // threshold starts listening, walkie-talkie style — release to stop,
+    // same as clicking the mic again mid-recording. The threshold sits
+    // comfortably above the OS's own key-repeat delay so it can't fire
+    // from someone just typing "First Last" at normal speed.
+    const LONG_PRESS_MS = 450;
+    let pressTimer = null;
+    let longPressActive = false;
+    function cancelLongPress() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      if (longPressActive) { longPressActive = false; stop(); }
+    }
+    input.addEventListener('keydown', function (e) {
+      if (e.code !== 'Space' || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (pressTimer || longPressActive) return;
+      pressTimer = setTimeout(function () {
+        pressTimer = null;
+        longPressActive = true;
+        start();
+      }, LONG_PRESS_MS);
+    });
+    input.addEventListener('keyup', function (e) {
+      if (e.code === 'Space') cancelLongPress();
+    });
+    // A blur mid-hold (e.g. Alt-Tabbing away) shouldn't leave recognition
+    // running with no keyup ever coming to stop it.
+    input.addEventListener('blur', cancelLongPress);
   }
 </script>
 <script>
