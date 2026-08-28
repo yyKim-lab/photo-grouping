@@ -37,8 +37,9 @@
       <h3>{{ t('import.gps_howto_step2_title') }}</h3>
       <p>{{ t('import.gps_howto_step2_body') }}</p>
       <pre class="code-block"><code>cd {{ repo_root }}
-.venv/bin/python scripts/ingest.py backfill-gps --takeout-dir path/to/Takeout
+.venv/bin/python scripts/ingest.py backfill-gps --takeout-dir ~/Downloads/Takeout
 .venv/bin/python scripts/ingest.py cluster-locations</code></pre>
+      <p class="muted" style="font-size:.82rem;">{{ t('import.gps_howto_path_hint') }}</p>
       <p>{{ t('import.gps_howto_note') }}</p>
     </div>
   </details>
