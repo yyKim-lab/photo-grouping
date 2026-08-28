@@ -188,6 +188,7 @@
   "photo.longitude": "Longitude",
   "photo.lookup_and_save": "Look up & save",
   "photo.manually_set": "manually set",
+  "photo.map_hint": "Click the map to set this photo's location, or drag the pin to adjust it.",
   "photo.no_faces": "No faces detected in this photo.",
   "photo.no_group": "Not part of any group yet — add it from {photos_link}.",
   "photo.no_location": "No location set for this photo.",

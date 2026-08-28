@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Edit photo — Photo Grouping{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='leaflet/leaflet.css') }}">
+{% endblock %}
 {% block content %}
 
 <h1>{{ t('photo.title') }}</h1>
@@ -72,6 +75,8 @@
      coordinates form below — if it doesn't (a private venue, "우리집",
      anywhere the geocoder just doesn't know), the name is saved on its
      own instead of erroring, see set_photo_location_by_name_without_coordinates(). -->
+<div id="location-map" style="height:280px; max-width:520px; border-radius:8px; overflow:hidden; margin-bottom:.4rem;"></div>
+<p class="muted" style="font-size:.82rem; max-width:520px; margin:0 0 .75rem;">{{ t('photo.map_hint') }}</p>
 <form method="post" action="{{ url_for('set_photo_location_by_name', photo_id=photo_id) }}"
       style="display:flex; gap:.6rem; align-items:center; max-width:520px; flex-wrap:wrap;">
   <input type="text" name="place_name" placeholder="{{ t('photo.place_placeholder') }}" style="flex:1; min-width:220px;">
@@ -202,6 +207,60 @@
       initVoiceInput('rename-face-{{ face.face_instance_id }}', {{ speech_language | tojson }}, micLabel);
     {% endfor %}
   });
+</script>
+<script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
+<script>
+  // A photo's location can be set three ways now (type a name, type raw
+  // coordinates, or this) — the map doesn't replace the other two forms,
+  // it just fills the same lat/lng fields the coordinates form already
+  // has, so "Save location" below stays the one actual save action
+  // regardless of which of the three was used to arrive at a value. A
+  // stray click on the map shouldn't silently commit anything on its own.
+  document.addEventListener('DOMContentLoaded', function () {
+    {% set has_real_location = location and location.centroid_lat != 999.0 %}
+    initLocationMap('location-map', {
+      lat: {{ location.centroid_lat if has_real_location else 'null' }},
+      lng: {{ location.centroid_lng if has_real_location else 'null' }},
+    }, function (lat, lng) {
+      document.querySelector('input[name=lat]').value = lat.toFixed(6);
+      document.querySelector('input[name=lng]').value = lng.toFixed(6);
+    });
+  });
+
+  function initLocationMap(elId, current, onPick) {
+    var el = document.getElementById(elId);
+    if (!el || typeof L === 'undefined') return;
+
+    var hasPoint = current && current.lat !== null && current.lng !== null;
+    var start = hasPoint ? [current.lat, current.lng] : [20, 0];
+    var map = L.map(elId).setView(start, hasPoint ? 15 : 2);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
+    }).addTo(map);
+
+    var marker = hasPoint ? L.marker(start, { draggable: true }).addTo(map) : null;
+    if (marker) {
+      marker.on('dragend', function () {
+        var pos = marker.getLatLng();
+        onPick(pos.lat, pos.lng);
+      });
+    }
+
+    map.on('click', function (e) {
+      if (marker) {
+        marker.setLatLng(e.latlng);
+      } else {
+        marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+        marker.on('dragend', function () {
+          var pos = marker.getLatLng();
+          onPick(pos.lat, pos.lng);
+        });
+      }
+      onPick(e.latlng.lat, e.latlng.lng);
+    });
+  }
 </script>
 
 {% endblock %}

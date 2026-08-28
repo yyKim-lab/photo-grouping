@@ -188,6 +188,7 @@
   "photo.longitude": "経度",
   "photo.lookup_and_save": "検索して保存",
   "photo.manually_set": "手動設定",
+  "photo.map_hint": "地図をクリックしてこの写真の位置を設定するか、ピンをドラッグして調整してください。",
   "photo.no_faces": "この写真では顔が検出されていません。",
   "photo.no_group": "まだどのグループにも属していません — {photos_link}から追加してください。",
   "photo.no_location": "この写真には位置が設定されていません。",

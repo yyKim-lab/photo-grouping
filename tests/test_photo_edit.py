@@ -568,6 +568,21 @@ class PageRenderTests(PhotoEditTestCase):
     def test_unknown_photo_is_404(self):
         self.assertEqual(self.client.get("/photo/9999").status_code, 404)
 
+    def test_page_renders_the_location_map(self):
+        photo_id = self._photo()
+
+        response = self.client.get(f"/photo/{photo_id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'id="location-map"', response.data)
+        self.assertIn(b"leaflet.js", response.data)
+        self.assertIn(b"leaflet.css", response.data)
+        self.assertIn(b"initLocationMap", response.data)
+
+    def test_location_map_static_files_are_served(self):
+        for path in ("/static/leaflet/leaflet.js", "/static/leaflet/leaflet.css"):
+            self.assertEqual(self.client.get(path).status_code, 200, path)
+
     def test_edit_link_present_on_cluster_detail_photo_grid(self):
         photo_id = self._photo()
         face_id, cluster_id = self._face(photo_id)

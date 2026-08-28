@@ -188,6 +188,7 @@
   "photo.longitude": "경도",
   "photo.lookup_and_save": "검색 후 저장",
   "photo.manually_set": "수동 설정됨",
+  "photo.map_hint": "지도를 클릭해 이 사진의 위치를 설정하거나, 핀을 드래그해 조정하세요.",
   "photo.no_faces": "이 사진에서 감지된 얼굴이 없습니다.",
   "photo.no_group": "아직 어떤 그룹에도 속해 있지 않습니다 — {photos_link}에서 추가하세요.",
   "photo.no_location": "이 사진에 설정된 위치가 없습니다.",
