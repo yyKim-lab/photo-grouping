@@ -35,9 +35,15 @@
     </div>
     <p class="muted" style="font-size:.85rem;">
       {% if suggestions %}{{ suggestions[0].text }}{% else %}{{ t('queue.location_unknown') }}{% endif %}
-      &middot;
-      <a href="https://www.openstreetmap.org/?mlat={{ item.centroid_lat }}&mlon={{ item.centroid_lng }}#map=16/{{ item.centroid_lat }}/{{ item.centroid_lng }}"
-         target="_blank" rel="noopener noreferrer">{{ t('queue.view_on_map') }}</a>
+      {# 999.0 mirrors repository.NO_COORDINATES — see cluster_detail.html
+         for the same guard; a coordinate-less cluster shouldn't normally
+         reach the queue (it's created already-named), but this stays
+         correct if one ever does. #}
+      {% if item.centroid_lat != 999.0 %}
+        &middot;
+        <a href="https://www.openstreetmap.org/?mlat={{ item.centroid_lat }}&mlon={{ item.centroid_lng }}#map=16/{{ item.centroid_lat }}/{{ item.centroid_lng }}"
+           target="_blank" rel="noopener noreferrer">{{ t('queue.view_on_map') }}</a>
+      {% endif %}
     </p>
   {% endif %}
 

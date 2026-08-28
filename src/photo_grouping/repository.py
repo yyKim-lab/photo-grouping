@@ -195,7 +195,33 @@ def load_location_clusters(conn: sqlite3.Connection) -> list[tuple[int, float, f
         GROUP BY lc.id
         """
     ).fetchall()
-    return [(r["id"], r["centroid_lat"], r["centroid_lng"], max(r["member_count"], 1)) for r in rows]
+    # Coordinate-less clusters (see NO_COORDINATES below) are excluded —
+    # they're never spatially clustered, so they must never enter the
+    # nearest-centroid candidate list assign_or_create() compares against.
+    # A real GPS point vs. the sentinel would compute some enormous
+    # haversine distance and likely never get chosen anyway, but excluding
+    # them explicitly is correct by construction, not by luck.
+    return [
+        (r["id"], r["centroid_lat"], r["centroid_lng"], max(r["member_count"], 1))
+        for r in rows
+        if r["centroid_lat"] != NO_COORDINATES
+    ]
+
+
+# A place with no real coordinates (§4.4-adjacent: a location the user
+# knows by name but that isn't a mappable point — "우리집", a private
+# venue, anywhere the geocoder just doesn't know) — centroid_lat/lng are
+# NOT NULL in the schema (migration 0001) and every existing consumer
+# (map links, the nearest-centroid clustering algorithm) assumes real
+# coordinates, so this uses a sentinel pair rather than a nullable-column
+# migration: SQLite can only relax a NOT NULL/CHECK constraint by
+# rebuilding the table and re-pointing every foreign key into it, which
+# migration 0004's own docstring already flagged as too risky to do for
+# a flag — doing that against a user's real, irreplaceable photo database
+# is not a trade worth making for this. 999.0 is outside the valid
+# latitude (-90..90) and longitude (-180..180) ranges, so it can never
+# collide with a real GPS reading.
+NO_COORDINATES = 999.0
 
 
 def insert_location_cluster(conn: sqlite3.Connection, *, lat: float, lng: float) -> int:
@@ -807,6 +833,48 @@ def override_photo_location(conn: sqlite3.Connection, photo_id: int, lat: float,
     else:
         cluster_id = cluster_ids[index]
         update_location_cluster_centroid(conn, cluster_id, chosen.centroid_lat, chosen.centroid_lng)
+
+    conn.execute(
+        """
+        INSERT INTO photo_location (photo_id, location_cluster_id, is_manual_override)
+        VALUES (?, ?, 1)
+        ON CONFLICT(photo_id) DO UPDATE SET
+            location_cluster_id = excluded.location_cluster_id,
+            is_manual_override = 1,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        """,
+        (photo_id, cluster_id),
+    )
+    return cluster_id
+
+
+def set_photo_location_by_name_without_coordinates(
+    conn: sqlite3.Connection, photo_id: int, name: str
+) -> int:
+    """For a place the user knows by name but that isn't a mappable point
+    (geocoding found nothing) — labels the photo directly with `name`
+    instead of erroring, using the NO_COORDINATES sentinel (see that
+    constant's docstring). Reuses an existing coordinate-less cluster with
+    the exact same name rather than creating a duplicate every time, the
+    same match-by-name idea as get_or_create_event(); real-GPS clusters
+    are never candidates here since there's no coordinate to match by."""
+    name = name.strip()
+    if not name:
+        raise ValueError("Place name cannot be empty.")
+
+    existing = conn.execute(
+        "SELECT id FROM location_cluster WHERE name = ? AND centroid_lat = ?",
+        (name, NO_COORDINATES),
+    ).fetchone()
+    if existing:
+        cluster_id = existing["id"]
+    else:
+        cursor = conn.execute(
+            "INSERT INTO location_cluster (status, name, centroid_lat, centroid_lng) "
+            "VALUES ('named', ?, ?, ?)",
+            (name, NO_COORDINATES, NO_COORDINATES),
+        )
+        cluster_id = cursor.lastrowid
 
     conn.execute(
         """

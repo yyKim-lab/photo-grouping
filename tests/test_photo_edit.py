@@ -421,16 +421,23 @@ class LocationByNameTests(PhotoEditTestCase):
         self.assertAlmostEqual(location["centroid_lng"], 126.978)
 
     @patch("photo_grouping.web.geocoding.forward_geocode")
-    def test_route_reports_a_miss_not_a_crash(self, mock_forward):
+    def test_a_geocode_miss_labels_the_photo_by_name_instead_of_erroring(self, mock_forward):
+        # A real place with no map presence (a private venue, "우리집",
+        # anywhere the geocoder just doesn't know) used to dead-end here
+        # with a 400 telling the user to type coordinates they don't
+        # have — now it's labeled by name only instead of failing.
         mock_forward.return_value = None
         photo_id = self._photo()
 
         response = self.client.post(
-            f"/photo/{photo_id}/location-by-name", data={"place_name": "nowhere in particular"}
+            f"/photo/{photo_id}/location-by-name", data={"place_name": "나만 아는 우리집"}
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertIsNone(repository.photo_detail(self.conn, photo_id)["location"])
+        self.assertEqual(response.status_code, 302)
+        location = repository.photo_detail(self.conn, photo_id)["location"]
+        self.assertIsNotNone(location)
+        self.assertEqual(location["name"], "나만 아는 우리집")
+        self.assertEqual(location["centroid_lat"], repository.NO_COORDINATES)
 
     @patch("photo_grouping.web.geocoding.forward_geocode")
     def test_uses_the_same_override_path_as_coordinates(self, mock_forward):
@@ -451,6 +458,100 @@ class LocationByNameTests(PhotoEditTestCase):
             "SELECT is_manual_override FROM photo_location WHERE photo_id = ?", (photo_id,)
         ).fetchone()
         self.assertEqual(photo_location["is_manual_override"], 1)
+
+
+class LocationWithoutCoordinatesTests(PhotoEditTestCase):
+    """repository.set_photo_location_by_name_without_coordinates() and the
+    NO_COORDINATES sentinel it uses — see that constant's docstring for
+    why this is a sentinel rather than a nullable-column migration."""
+
+    def test_labels_the_photo_with_the_given_name(self):
+        photo_id = self._photo()
+
+        with self.conn:
+            repository.set_photo_location_by_name_without_coordinates(
+                self.conn, photo_id, "나만 아는 우리집"
+            )
+
+        location = repository.photo_detail(self.conn, photo_id)["location"]
+        self.assertEqual(location["name"], "나만 아는 우리집")
+        self.assertEqual(location["centroid_lat"], repository.NO_COORDINATES)
+        self.assertEqual(location["centroid_lng"], repository.NO_COORDINATES)
+        self.assertEqual(location["is_manual_override"], 1)
+
+    def test_reuses_an_existing_coordinate_less_cluster_with_the_same_name(self):
+        photo_a = self._photo()
+        photo_b = self._photo()
+
+        with self.conn:
+            id_a = repository.set_photo_location_by_name_without_coordinates(
+                self.conn, photo_a, "나만 아는 우리집"
+            )
+            id_b = repository.set_photo_location_by_name_without_coordinates(
+                self.conn, photo_b, "나만 아는 우리집"
+            )
+
+        self.assertEqual(id_a, id_b)
+
+    def test_rejects_a_blank_name(self):
+        photo_id = self._photo()
+
+        with self.assertRaises(ValueError):
+            with self.conn:
+                repository.set_photo_location_by_name_without_coordinates(self.conn, photo_id, "   ")
+
+    def test_excluded_from_the_spatial_clustering_candidate_list(self):
+        # The whole point: a coordinate-less cluster must never be offered
+        # to assign_or_create() as a nearest-centroid match for a real GPS
+        # point — there's no real coordinate to compute a distance from.
+        photo_id = self._photo()
+        with self.conn:
+            repository.set_photo_location_by_name_without_coordinates(
+                self.conn, photo_id, "나만 아는 우리집"
+            )
+
+        clusters = repository.load_location_clusters(self.conn)
+
+        self.assertEqual(clusters, [])
+
+    def test_a_real_gps_photo_still_clusters_normally_alongside_a_coordinate_less_one(self):
+        named_photo = self._photo()
+        with self.conn:
+            repository.set_photo_location_by_name_without_coordinates(
+                self.conn, named_photo, "나만 아는 우리집"
+            )
+
+        gps_photo = self._photo()
+        with self.conn:
+            repository.override_photo_location(self.conn, gps_photo, 37.5665, 126.9780)
+
+        location = repository.photo_detail(self.conn, gps_photo)["location"]
+        self.assertAlmostEqual(location["centroid_lat"], 37.5665)
+        self.assertAlmostEqual(location["centroid_lng"], 126.9780)
+
+    def test_cluster_detail_page_hides_the_view_on_map_link(self):
+        photo_id = self._photo()
+        with self.conn:
+            cluster_id = repository.set_photo_location_by_name_without_coordinates(
+                self.conn, photo_id, "나만 아는 우리집"
+            )
+
+        response = self.client.get(f"/cluster/place/{cluster_id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(b"openstreetmap.org", response.data)
+
+    def test_photo_detail_page_leaves_the_coordinate_fields_blank(self):
+        photo_id = self._photo()
+        with self.conn:
+            repository.set_photo_location_by_name_without_coordinates(
+                self.conn, photo_id, "나만 아는 우리집"
+            )
+
+        response = self.client.get(f"/photo/{photo_id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(b"999.000000", response.data)
 
 
 class PageRenderTests(PhotoEditTestCase):

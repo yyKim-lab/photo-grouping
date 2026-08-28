@@ -24,8 +24,12 @@
   {{ t('count.photos', count=photos|length) }}
   {% if kind == 'place' %}
     {% if suggestions %}&middot; {{ suggestions[0].text }}{% endif %}
-    &middot; <a href="https://www.openstreetmap.org/?mlat={{ cluster.centroid_lat }}&mlon={{ cluster.centroid_lng }}#map=16/{{ cluster.centroid_lat }}/{{ cluster.centroid_lng }}"
-                target="_blank" rel="noopener noreferrer">{{ t('queue.view_on_map') }}</a>
+    {# 999.0 mirrors repository.NO_COORDINATES — a place labeled by name
+       only (no map match) has nothing to link to. #}
+    {% if cluster.centroid_lat != 999.0 %}
+      &middot; <a href="https://www.openstreetmap.org/?mlat={{ cluster.centroid_lat }}&mlon={{ cluster.centroid_lng }}#map=16/{{ cluster.centroid_lat }}/{{ cluster.centroid_lng }}"
+                  target="_blank" rel="noopener noreferrer">{{ t('queue.view_on_map') }}</a>
+    {% endif %}
   {% endif %}
 </p>
 

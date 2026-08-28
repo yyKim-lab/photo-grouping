@@ -67,8 +67,11 @@
 <!-- Name lookup first: most people know a photo's location by name, not
      by coordinates, and typing a place's name is a lot easier than finding
      its lat/lng first just to correct a photo. Looks it up (reusing the
-     same regional geocoding providers §3 uses in reverse) and saves it
-     through the exact same path as the coordinates form below. -->
+     same regional geocoding providers §3 uses in reverse); if that finds
+     a real map match, it's saved through the exact same path as the
+     coordinates form below — if it doesn't (a private venue, "우리집",
+     anywhere the geocoder just doesn't know), the name is saved on its
+     own instead of erroring, see set_photo_location_by_name_without_coordinates(). -->
 <form method="post" action="{{ url_for('set_photo_location_by_name', photo_id=photo_id) }}"
       style="display:flex; gap:.6rem; align-items:center; max-width:520px; flex-wrap:wrap;">
   <input type="text" name="place_name" placeholder="{{ t('photo.place_placeholder') }}" style="flex:1; min-width:220px;">
@@ -77,11 +80,13 @@
 <p class="muted" style="font-size:.85rem; margin:.4rem 0 1rem;">{{ t('photo.or_enter_coords') }}</p>
 <form method="post" action="{{ url_for('set_photo_location_override', photo_id=photo_id) }}"
       style="display:flex; gap:.6rem; align-items:center; max-width:520px; flex-wrap:wrap;">
+  {# 999.0 mirrors repository.NO_COORDINATES — a place saved by name only
+     (no map match) has no real lat/lng to show here. #}
   <input type="text" name="lat" inputmode="decimal"
-         value="{{ '%.6f'|format(location.centroid_lat) if location else (photo.gps_override_lat or photo.gps_lat or '') }}"
+         value="{{ ('%.6f'|format(location.centroid_lat) if location.centroid_lat != 999.0 else '') if location else (photo.gps_override_lat or photo.gps_lat or '') }}"
          placeholder="{{ t('photo.latitude') }}" style="flex:1; min-width:140px;">
   <input type="text" name="lng" inputmode="decimal"
-         value="{{ '%.6f'|format(location.centroid_lng) if location else (photo.gps_override_lng or photo.gps_lng or '') }}"
+         value="{{ ('%.6f'|format(location.centroid_lng) if location.centroid_lat != 999.0 else '') if location else (photo.gps_override_lng or photo.gps_lng or '') }}"
          placeholder="{{ t('photo.longitude') }}" style="flex:1; min-width:140px;">
   <button class="primary" type="submit">{{ t('photo.save_location') }}</button>
 </form>

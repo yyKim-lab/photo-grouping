@@ -552,15 +552,21 @@ def set_photo_location_by_name(photo_id):
     if not name:
         return render_template("error.html", message="Type a place name to look up."), 400
 
+    conn = get_conn()
     coords = geocoding.forward_geocode(name)
     if coords is None:
-        return render_template(
-            "error.html",
-            message=f"Couldn't find a location for “{name}”. Try different wording, "
-                     "or enter coordinates directly instead.",
-        ), 400
+        # Not every real place a person wants to label is a mappable
+        # point — a private venue, "우리집", anywhere the geocoder just
+        # doesn't know. Rather than dead-ending here (the old behavior:
+        # a 400 telling the user to try different wording or enter raw
+        # coordinates, which most people can't do for a place they don't
+        # have GPS numbers for), label it by name only. See
+        # repository.NO_COORDINATES for why this doesn't need a schema
+        # change to represent "no coordinates yet".
+        with conn:
+            repository.set_photo_location_by_name_without_coordinates(conn, photo_id, name)
+        return redirect(url_for("photo_detail", photo_id=photo_id))
 
-    conn = get_conn()
     with conn:
         repository.override_photo_location(conn, photo_id, coords[0], coords[1])
     return redirect(url_for("photo_detail", photo_id=photo_id))
