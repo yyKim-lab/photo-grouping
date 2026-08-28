@@ -9,7 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from photo_grouping import db, repository, web  # noqa: E402
+from photo_grouping import db, i18n, repository, web  # noqa: E402
+from _attr_helpers import decode_confirm_message, get_form_onsubmit_by_action  # noqa: E402
 
 
 class EventTestCase(unittest.TestCase):
@@ -198,6 +199,22 @@ class RouteTests(EventTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("가평 여행".encode(), response.data)
+
+    def test_delete_confirm_dialog_is_not_truncated_by_the_attribute_quote(self):
+        # Regression test: `{{ ... | tojson }}` embedded directly inside a
+        # double-quoted HTML attribute gets silently cut off at the JSON
+        # string's own opening quote, leaving `onsubmit="return confirm("`
+        # — invalid JS that fails to compile, so the form submits with NO
+        # confirmation at all. Fixed via `| tojson | forceescape`.
+        with self.conn:
+            event_id = repository.create_event(self.conn, "가평 여행")
+
+        body = self.client.get(f"/event/{event_id}").get_data(as_text=True)
+
+        onsubmit = get_form_onsubmit_by_action(body, f"/event/{event_id}/delete")
+        self.assertTrue(onsubmit.startswith("return confirm(\""), onsubmit)
+        self.assertTrue(onsubmit.rstrip().endswith("\");"), onsubmit)
+        self.assertEqual(decode_confirm_message(onsubmit), i18n.t("group_detail.delete_confirm", "ko"))
 
     def test_unknown_event_is_404(self):
         self.assertEqual(self.client.get("/event/9999").status_code, 404)

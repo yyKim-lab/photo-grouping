@@ -51,7 +51,7 @@
 
         <form method="post" action="{{ url_for('autobio_segment_regenerate', date=date, index=idx) }}"
               style="margin-top:.5rem;"
-              onsubmit="return confirm({{ t('entry.regenerate_segment_confirm') | tojson }});">
+              onsubmit="return confirm({{ t('entry.regenerate_segment_confirm') | tojson | forceescape }});">
           <button type="submit" style="font-size:.85rem; padding:.4rem .7rem;">{{ t('entry.regenerate_segment') }}</button>
         </form>
 
@@ -87,7 +87,7 @@
   </div>
 
   <form method="post" action="{{ url_for('autobio_generate') }}" style="margin-top:1rem;"
-        onsubmit="return confirm({{ t('entry.regenerate_whole_confirm') | tojson }});">
+        onsubmit="return confirm({{ t('entry.regenerate_whole_confirm') | tojson | forceescape }});">
     <input type="hidden" name="date" value="{{ date }}">
     <button type="submit">{{ t('entry.regenerate_whole') }}</button>
   </form>
@@ -98,7 +98,7 @@
 
   <div style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border);">
     <form method="post" action="{{ url_for('autobio_entry_delete', date=date) }}"
-          onsubmit="return confirm({{ t('entry.delete_confirm') | tojson }});">
+          onsubmit="return confirm({{ t('entry.delete_confirm') | tojson | forceescape }});">
       <button type="submit">{{ t('entry.delete') }}</button>
     </form>
   </div>

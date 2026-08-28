@@ -306,5 +306,11 @@
   "timeline.page_of": "page {page} of {total_pages}",
   "timeline.select_all_from": "Select all photos from {date}",
   "timeline.select_hint": "Tick photos below (shift-click for a range), then name the occasion.",
-  "timeline.title": "Photos by time"
+  "timeline.title": "Photos by time",
+  "topbar.back": "Back",
+  "topbar.group": "Group",
+  "topbar.hidden": "Hidden",
+  "topbar.person": "Person",
+  "topbar.photo": "Photo",
+  "topbar.place": "Place"
 }

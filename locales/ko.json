@@ -306,5 +306,11 @@
   "timeline.page_of": "{page} / {total_pages} 페이지",
   "timeline.select_all_from": "{date}의 모든 사진 선택",
   "timeline.select_hint": "아래 사진을 선택하세요 (Shift+클릭으로 범위 선택) — 그런 다음 이름을 붙이세요.",
-  "timeline.title": "시간순 사진"
+  "timeline.title": "시간순 사진",
+  "topbar.back": "뒤로",
+  "topbar.group": "그룹",
+  "topbar.hidden": "숨김",
+  "topbar.person": "인물",
+  "topbar.photo": "사진",
+  "topbar.place": "장소"
 }

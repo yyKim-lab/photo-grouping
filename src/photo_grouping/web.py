@@ -110,12 +110,14 @@ def inject_i18n():
     # connection or query beyond the first settings lookup.
     conn = get_conn()
     lang = repository.get_app_settings(conn)["ui_language"]
-    return {
+    context = {
         "t": lambda key, **kw: i18n.t(key, lang, **kw),
         "ui_language": lang,
         "nav_active": _NAV_SECTIONS.get(request.endpoint),
         "github_url": GITHUB_URL,
     }
+    context.update(_subpage_context(lang))
+    return context
 
 
 # Which nav-bar item is "current" for a given page — the CSS support
@@ -145,6 +147,63 @@ _NAV_SECTIONS = {
     "settings_page": "settings",
     "settings_connect_page": "settings",
 }
+
+# The one endpoint per tab that IS that tab's own landing page — every
+# other endpoint sharing that tab in _NAV_SECTIONS above is, by
+# definition, a page reached by drilling into a specific item from it
+# (a cluster, an event, a photo, a day's entry...). That's the exact set
+# of pages that get the contextual "back arrow + title" app bar instead
+# of the brand + full nav row — see _subpage_context() below. Deriving
+# this from _NAV_SECTIONS rather than hand-listing sub-pages separately
+# means the two can't drift out of sync with each other.
+_TAB_PRIMARY_ENDPOINT = {
+    "albums": "index",
+    "photos": "timeline",
+    "groups": "events_index",
+    "queue": "queue",
+    "diary": "autobio_daily_index",
+    "autobio": "autobio_index",
+    "import": "import_start_page",
+    "settings": "settings_page",
+}
+
+# Generic, translated page-TYPE labels for the contextual app bar — not
+# the specific item's name, which already appears as the page's own
+# heading right below (e.g. event_detail's h1 is the event's actual
+# name) — showing it a second time in the app bar would just repeat it.
+# cluster_detail isn't listed here: its title depends on `kind`
+# (face/place), resolved separately in _subpage_context().
+_SUBPAGE_TITLE_KEYS = {
+    "event_detail": "topbar.group",
+    "photo_detail": "topbar.photo",
+    "autobio_entry": "nav.diary",
+    "autobio_summary_view": "nav.autobio",
+    "excluded": "topbar.hidden",
+    "import_local_form": "nav.import",
+    "settings_connect_page": "nav.settings",
+}
+
+
+def _subpage_context(lang: str) -> dict:
+    """(page_title, back_fallback_url) for the current request if it's a
+    sub-page (see _TAB_PRIMARY_ENDPOINT's docstring), else (None, None) —
+    base.html shows the contextual back+title app bar only when
+    page_title is set, the brand+full-nav row otherwise."""
+    endpoint = request.endpoint
+    tab = _NAV_SECTIONS.get(endpoint)
+    if tab is None or endpoint == _TAB_PRIMARY_ENDPOINT.get(tab):
+        return {"page_title": None, "back_fallback_url": None}
+
+    if endpoint == "cluster_detail":
+        kind = (request.view_args or {}).get("kind")
+        title_key = "topbar.place" if kind == "place" else "topbar.person"
+    else:
+        title_key = _SUBPAGE_TITLE_KEYS.get(endpoint)
+
+    return {
+        "page_title": i18n.t(title_key, lang) if title_key else None,
+        "back_fallback_url": url_for(_TAB_PRIMARY_ENDPOINT[tab]),
+    }
 
 
 # ---------------------------------------------------------------------

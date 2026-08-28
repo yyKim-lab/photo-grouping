@@ -306,5 +306,11 @@
   "timeline.page_of": "página {page} de {total_pages}",
   "timeline.select_all_from": "Seleccionar todas las fotos del {date}",
   "timeline.select_hint": "Marca las fotos de abajo (mayús+clic para un rango), luego ponle un nombre a la ocasión.",
-  "timeline.title": "Fotos por fecha"
+  "timeline.title": "Fotos por fecha",
+  "topbar.back": "Atrás",
+  "topbar.group": "Grupo",
+  "topbar.hidden": "Ocultos",
+  "topbar.person": "Persona",
+  "topbar.photo": "Foto",
+  "topbar.place": "Lugar"
 }

@@ -60,7 +60,7 @@
 
 <div style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border);">
   <form method="post" action="{{ url_for('event_delete', event_id=event.id) }}"
-        onsubmit="return confirm({{ t('group_detail.delete_confirm') | tojson }});">
+        onsubmit="return confirm({{ t('group_detail.delete_confirm') | tojson | forceescape }});">
     <button type="submit">{{ t('group_detail.delete') }}</button>
     <span class="muted" style="font-size:.85rem;"> {{ t('group_detail.delete_note') }}</span>
   </form>

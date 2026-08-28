@@ -306,5 +306,11 @@
   "timeline.page_of": "{page} / {total_pages} ページ",
   "timeline.select_all_from": "{date}の写真をすべて選択",
   "timeline.select_hint": "下の写真を選択してください（Shift+クリックで範囲選択）。選択したら名前を付けてください。",
-  "timeline.title": "時系列で見る写真"
+  "timeline.title": "時系列で見る写真",
+  "topbar.back": "戻る",
+  "topbar.group": "グループ",
+  "topbar.hidden": "非表示",
+  "topbar.person": "人物",
+  "topbar.photo": "写真",
+  "topbar.place": "場所"
 }

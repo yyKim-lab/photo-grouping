@@ -56,6 +56,20 @@
   header a:hover { color: var(--text); }
   header a.active { color: var(--accent); font-weight: 700; }
   header .brand { font-weight: 700; color: var(--text); }
+  /* Contextual app bar (sub-pages — header gets the .subpage class from
+     page_title being set, see _subpage_context() in web.py): a back
+     arrow + a generic page-type title stand in for the brand + full nav
+     row. The specific item's own name (an event's name, a photo's date)
+     already appears as the page's own heading right below, so repeating
+     it here would just be noise — the title is deliberately generic
+     ("Group", "Person", "Photo"...). */
+  .back-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem; flex-shrink: 0; padding: 0;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 1.3rem; cursor: pointer; line-height: 1;
+  }
+  .page-title { font-weight: 700; color: var(--text); }
   /* Same row as the rest of the header at wide widths — a plain flex
      child, spaced the same way the nav links used to be as direct
      children of <header> before they were wrapped in this container. */
@@ -75,6 +89,30 @@
   }
   .nav-toggle span { display: block; width: 1.1rem; height: 2px; background: var(--text); border-radius: 1px; }
   .nav-backdrop { display: none; }
+  .nav-backdrop.open {
+    display: block; position: fixed; inset: 0; z-index: 40;
+    background: rgba(0,0,0,.4);
+  }
+
+  /* Drawer-mode rules for .nav-toggle/.nav-links — normally only true
+     below the breakpoint (the @media block), but a sub-page forces them
+     on at ANY width via header.subpage, since the app bar has no room
+     left for the full inline nav row once back+title take the brand's
+     place. Deliberately duplicated rather than merged into one
+     selector: media queries and class selectors can't be OR'd together
+     in one rule, and this keeps each trigger's condition easy to read
+     on its own. Keep both blocks' declarations in sync if either
+     changes. */
+  header.subpage .nav-toggle { display: flex; }
+  header.subpage .nav-links {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+    width: min(260px, 80vw); background: var(--bg); border-left: 1px solid var(--border);
+    flex-direction: column; align-items: stretch; gap: 0; padding: 1rem;
+    transform: translateX(100%); transition: transform .2s ease;
+    overflow-y: auto;
+  }
+  header.subpage .nav-links.open { transform: translateX(0); }
+  header.subpage .nav-links a { padding: .75rem .5rem; border-bottom: 1px solid var(--border); }
 
   @media (max-width: 760px) {
     .nav-toggle { display: flex; }
@@ -88,10 +126,6 @@
     .nav-links.open { transform: translateX(0); }
     .nav-links a {
       padding: .75rem .5rem; border-bottom: 1px solid var(--border);
-    }
-    .nav-backdrop.open {
-      display: block; position: fixed; inset: 0; z-index: 40;
-      background: rgba(0,0,0,.4);
     }
   }
   main { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
@@ -264,8 +298,14 @@
 </style>
 </head>
 <body>
-<header>
-  <span class="brand">Photo Grouping</span>
+<header class="{{ 'subpage' if page_title }}">
+  {% if page_title %}
+    <button type="button" class="back-btn" aria-label="{{ t('topbar.back') }}"
+            onclick="if (history.length > 1) { history.back(); } else { location.href = {{ back_fallback_url | tojson | forceescape }}; }">&larr;</button>
+    <span class="page-title">{{ page_title }}</span>
+  {% else %}
+    <span class="brand">Photo Grouping</span>
+  {% endif %}
   <nav id="nav-links" class="nav-links">
     <a href="{{ url_for('index') }}" class="{{ 'active' if nav_active == 'albums' }}">{{ t('nav.albums') }}</a>
     <a href="{{ url_for('timeline') }}" class="{{ 'active' if nav_active == 'photos' }}">{{ t('nav.photos') }}</a>
@@ -276,9 +316,10 @@
     <a href="{{ url_for('import_start_page') }}" class="{{ 'active' if nav_active == 'import' }}">{{ t('nav.import') }}</a>
     <a href="{{ url_for('settings_page') }}" class="{{ 'active' if nav_active == 'settings' }}">{{ t('nav.settings') }}</a>
   </nav>
-  <!-- Hamburger — only visible below the drawer breakpoint (see
-       .nav-toggle's media query). Toggles .nav-links/.nav-backdrop's
-       "open" class; see initNavDrawer() below. -->
+  <!-- Hamburger — visible below the drawer breakpoint always, and at
+       any width on a sub-page (header.subpage — see the CSS above).
+       Toggles .nav-links/.nav-backdrop's "open" class; see
+       initNavDrawer() below. -->
   <button type="button" id="nav-toggle" class="nav-toggle" aria-label="{{ t('nav.menu') }}"
           aria-controls="nav-links" aria-expanded="false">
     <span></span><span></span><span></span>

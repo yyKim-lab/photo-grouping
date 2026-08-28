@@ -306,5 +306,11 @@
   "timeline.page_of": "сторінка {page} з {total_pages}",
   "timeline.select_all_from": "Вибрати всі фото за {date}",
   "timeline.select_hint": "Позначте фото нижче (Shift+клік для діапазону), потім назвіть подію.",
-  "timeline.title": "Фото за часом"
+  "timeline.title": "Фото за часом",
+  "topbar.back": "Назад",
+  "topbar.group": "Група",
+  "topbar.hidden": "Приховано",
+  "topbar.person": "Людина",
+  "topbar.photo": "Фото",
+  "topbar.place": "Місце"
 }

@@ -306,5 +306,11 @@
   "timeline.page_of": "page {page} sur {total_pages}",
   "timeline.select_all_from": "Sélectionner toutes les photos du {date}",
   "timeline.select_hint": "Cochez les photos ci-dessous (maj+clic pour une plage), puis nommez l'occasion.",
-  "timeline.title": "Photos par date"
+  "timeline.title": "Photos par date",
+  "topbar.back": "Retour",
+  "topbar.group": "Groupe",
+  "topbar.hidden": "Masqués",
+  "topbar.person": "Personne",
+  "topbar.photo": "Photo",
+  "topbar.place": "Lieu"
 }

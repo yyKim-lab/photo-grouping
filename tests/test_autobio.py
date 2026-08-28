@@ -13,7 +13,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from photo_grouping import autobio, db, repository, web  # noqa: E402
+from photo_grouping import autobio, db, i18n, repository, web  # noqa: E402
+from _attr_helpers import decode_confirm_message, get_form_onsubmit_by_action  # noqa: E402
 
 DIMS = 512
 
@@ -761,6 +762,31 @@ class AutobioRoutesTests(AutobioTestCase):
 
         self.assertIn(b"Draft text.", response.data)
 
+    def test_regenerate_and_delete_confirm_dialogs_are_not_truncated_by_the_attribute_quote(self):
+        # Regression test: `{{ ... | tojson }}` embedded directly inside a
+        # double-quoted HTML attribute gets silently cut off at the JSON
+        # string's own opening quote, leaving `onsubmit="return confirm("`
+        # — invalid JS that fails to compile, so the form submits with NO
+        # confirmation at all. Fixed via `| tojson | forceescape`.
+        with self.conn:
+            repository.save_autobio_draft(
+                self.conn, date="2026-08-14",
+                segments=[{"text": "Draft text.", "source_photo_ids": [], "edited": False}],
+                draft_text="Draft text.", has_unlabeled=False,
+            )
+
+        body = self.client.get("/autobio/2026-08-14").get_data(as_text=True)
+
+        for action_substring, key in [
+            ("/autobio/2026-08-14/segment/0/regenerate", "entry.regenerate_segment_confirm"),
+            ("/autobio/generate", "entry.regenerate_whole_confirm"),
+            ("/autobio/2026-08-14/delete", "entry.delete_confirm"),
+        ]:
+            onsubmit = get_form_onsubmit_by_action(body, action_substring)
+            self.assertTrue(onsubmit.startswith('return confirm("'), (action_substring, onsubmit))
+            self.assertTrue(onsubmit.rstrip().endswith('");'), (action_substring, onsubmit))
+            self.assertEqual(decode_confirm_message(onsubmit), i18n.t(key, "ko"), action_substring)
+
     def test_entry_page_shows_the_live_unlabeled_count_not_the_stale_snapshot(self):
         # The stored has_unlabeled flag is a generation-time snapshot;
         # the page itself should reflect labeling done since then.
@@ -1289,6 +1315,26 @@ class AutobioSummaryRoutesTests(AutobioTestCase):
         response = self.client.get("/autobio/summary/2026-08-10/2026-08-14")
 
         self.assertIn(b"A great week.", response.data)
+
+    def test_regenerate_and_delete_confirm_dialogs_are_not_truncated_by_the_attribute_quote(self):
+        # Same regression as the daily-entry page: `| tojson` alone inside
+        # a double-quoted attribute gets cut at its own opening quote.
+        with self.conn:
+            repository.save_autobio_summary(
+                self.conn, start_date="2026-08-10", end_date="2026-08-14",
+                source_entry_ids=[], text="A great week.",
+            )
+
+        body = self.client.get("/autobio/summary/2026-08-10/2026-08-14").get_data(as_text=True)
+
+        for action_substring, key in [
+            ("/autobio/generate-range", "summary.regenerate_confirm"),
+            ("/autobio/summary/2026-08-10/2026-08-14/delete", "summary.delete_confirm"),
+        ]:
+            onsubmit = get_form_onsubmit_by_action(body, action_substring)
+            self.assertTrue(onsubmit.startswith('return confirm("'), (action_substring, onsubmit))
+            self.assertTrue(onsubmit.rstrip().endswith('");'), (action_substring, onsubmit))
+            self.assertEqual(decode_confirm_message(onsubmit), i18n.t(key, "ko"), action_substring)
 
     def test_summary_save_route(self):
         with self.conn:
