@@ -33,6 +33,15 @@ your AI/Google API keys is shared with anyone else's install.
 
 ## Setup
 
+Every step below is a copy-paste command or a couple of clicks — if
+you're setting this up from a link someone sent you rather than writing
+the code yourself, pasting this repo's URL to an AI assistant (Claude,
+ChatGPT, etc.) and asking it to walk you through Setup works well too.
+One thing to get right either way: get your **own** free API keys in
+steps 2–4 below rather than reusing whoever shared this with you —
+every install is independent (see "Platform" above), and reusing
+someone else's key spends their quota, not a shared pool.
+
 ### 1. Install
 
 ```bash
