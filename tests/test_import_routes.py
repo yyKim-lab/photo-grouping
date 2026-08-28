@@ -417,8 +417,16 @@ class ImportContinueTests(ImportRouteTestCase):
 
         self.client.post("/import/continue", data={"session_id": "sess-1"})
         result = self.client.get("/import/result", query_string={"job_id": "sess-1"})
+        body = result.get_data(as_text=True)
 
-        self.assertIn(b"backfill-gps", result.data)
+        # The short note is always there; the in-app "how do I do this?"
+        # disclosure carries the real step-by-step guidance (a Takeout
+        # link, and the actual runnable commands with this install's real
+        # path filled in) so people aren't sent to the README for it.
+        self.assertIn("backfill-gps", body)
+        self.assertIn('<details class="howto">', body)
+        self.assertIn('href="https://takeout.google.com"', body)
+        self.assertIn("cluster-locations", body)
 
     @patch("photo_grouping.web.picker_client")
     @patch("photo_grouping.web.google_auth")
@@ -785,8 +793,10 @@ class ImportLocalTests(ImportRouteTestCase):
         result = self.client.get(
             "/import/result", query_string={"job_id": self._extract_job_id(response)}
         )
+        body = result.get_data(as_text=True)
 
-        self.assertNotIn(b"backfill-gps", result.data)
+        self.assertNotIn("backfill-gps", body)
+        self.assertNotIn('<details class="howto">', body)
 
     @patch("photo_grouping.web.face_embeddings")
     def test_multiple_files_all_import(self, mock_face):

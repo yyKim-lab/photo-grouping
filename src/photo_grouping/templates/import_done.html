@@ -25,11 +25,23 @@
     {{ t('import.done_local_note') }}
   </p>
 {% else %}
-  {% set cmd1 = '<code>scripts/ingest.py backfill-gps --takeout-dir …</code>' %}
-  {% set cmd2 = '<code>cluster-locations</code>' %}
   <p class="muted" style="max-width:560px; margin-top:1rem;">
-    {{ t('import.done_google_note', cmd1=cmd1, cmd2=cmd2) | safe }}
+    {{ t('import.done_google_note') }}
   </p>
+  <details class="howto">
+    <summary>{{ t('import.gps_howto_summary') }}</summary>
+    <div class="howto-body">
+      <h3>{{ t('import.gps_howto_step1_title') }}</h3>
+      <p>{{ t('import.gps_howto_step1_body') }}</p>
+      <p><a class="btn" href="https://takeout.google.com" target="_blank" rel="noopener noreferrer">{{ t('import.gps_howto_takeout_link') }}</a></p>
+      <h3>{{ t('import.gps_howto_step2_title') }}</h3>
+      <p>{{ t('import.gps_howto_step2_body') }}</p>
+      <pre class="code-block"><code>cd {{ repo_root }}
+.venv/bin/python scripts/ingest.py backfill-gps --takeout-dir path/to/Takeout
+.venv/bin/python scripts/ingest.py cluster-locations</code></pre>
+      <p>{{ t('import.gps_howto_note') }}</p>
+    </div>
+  </details>
 {% endif %}
 
 <p style="margin-top:1.5rem; display:flex; flex-wrap:wrap; gap:.6rem;">

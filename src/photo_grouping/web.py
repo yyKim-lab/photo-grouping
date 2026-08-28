@@ -115,6 +115,7 @@ def inject_i18n():
         "ui_language": lang,
         "nav_active": _NAV_SECTIONS.get(request.endpoint),
         "github_url": GITHUB_URL,
+        "repo_root": str(_REPO_ROOT),
     }
     context.update(_subpage_context(lang))
     return context
