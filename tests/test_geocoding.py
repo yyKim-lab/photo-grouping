@@ -1,5 +1,6 @@
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -30,6 +31,47 @@ class GeocodingTestCase(unittest.TestCase):
 
     def tearDown(self):
         self._env.stop()
+
+
+class KeyResolutionTests(GeocodingTestCase):
+    """Mirrors test_llm.py's ApiKeyResolutionTests — same "env var, then
+    secrets file" shape, for both regional geocoding keys."""
+
+    def setUp(self):
+        super().setUp()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.kakao_path = Path(self._tmp.name) / "kakao_rest_api_key.txt"
+        self.yahoo_jp_path = Path(self._tmp.name) / "yahoo_jp_client_id.txt"
+
+    def tearDown(self):
+        self._tmp.cleanup()
+        super().tearDown()
+
+    def test_kakao_prefers_environment_variable(self):
+        with patch.dict("os.environ", {"KAKAO_REST_API_KEY": "env-key"}):
+            self.assertEqual(geocoding.resolve_kakao_key(self.kakao_path), "env-key")
+
+    def test_kakao_falls_back_to_secrets_file(self):
+        self.kakao_path.write_text("file-key\n")
+        self.assertEqual(geocoding.resolve_kakao_key(self.kakao_path), "file-key")
+
+    def test_kakao_strips_whitespace_and_takes_first_line(self):
+        self.kakao_path.write_text("  file-key  \nsome other note\n")
+        self.assertEqual(geocoding.resolve_kakao_key(self.kakao_path), "file-key")
+
+    def test_kakao_returns_none_when_nothing_is_configured(self):
+        self.assertIsNone(geocoding.resolve_kakao_key(self.kakao_path))
+
+    def test_yahoo_jp_prefers_environment_variable(self):
+        with patch.dict("os.environ", {"YAHOO_JP_CLIENT_ID": "env-id"}):
+            self.assertEqual(geocoding.resolve_yahoo_jp_client_id(self.yahoo_jp_path), "env-id")
+
+    def test_yahoo_jp_falls_back_to_secrets_file(self):
+        self.yahoo_jp_path.write_text("file-id\n")
+        self.assertEqual(geocoding.resolve_yahoo_jp_client_id(self.yahoo_jp_path), "file-id")
+
+    def test_yahoo_jp_returns_none_when_nothing_is_configured(self):
+        self.assertIsNone(geocoding.resolve_yahoo_jp_client_id(self.yahoo_jp_path))
 
 
 class RoutingTests(GeocodingTestCase):

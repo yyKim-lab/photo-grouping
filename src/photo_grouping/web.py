@@ -56,6 +56,9 @@ TOKEN_CACHE_PATH = _REPO_ROOT / "secrets" / "token.json"
 # instead of requiring a self-hoster to create the files by hand.
 ANTHROPIC_KEY_PATH = _REPO_ROOT / "secrets" / "anthropic_api_key.txt"
 OPENAI_KEY_PATH = _REPO_ROOT / "secrets" / "openai_api_key.txt"
+# Same idea, for geocoding.py's resolve_kakao_key()/resolve_yahoo_jp_client_id().
+KAKAO_KEY_PATH = _REPO_ROOT / "secrets" / "kakao_rest_api_key.txt"
+YAHOO_JP_KEY_PATH = _REPO_ROOT / "secrets" / "yahoo_jp_client_id.txt"
 DEFAULT_ORIGINALS_DIR = _REPO_ROOT / "data" / "originals"
 # Footer link (base.html) — empty until the project has a public repo to
 # point to; set once it exists rather than linking to a 404.
@@ -1807,6 +1810,8 @@ def settings_page():
         google_configured=_google_configured(),
         anthropic_configured=ANTHROPIC_KEY_PATH.exists(),
         openai_configured=OPENAI_KEY_PATH.exists(),
+        kakao_configured=KAKAO_KEY_PATH.exists(),
+        yahoo_jp_configured=YAHOO_JP_KEY_PATH.exists(),
         default_originals_dir=str(DEFAULT_ORIGINALS_DIR),
     )
 
@@ -1821,6 +1826,8 @@ def settings_connect_page():
         google_email=google_auth.get_cached_email(TOKEN_CACHE_PATH),
         anthropic_configured=ANTHROPIC_KEY_PATH.exists(),
         openai_configured=OPENAI_KEY_PATH.exists(),
+        kakao_configured=KAKAO_KEY_PATH.exists(),
+        yahoo_jp_configured=YAHOO_JP_KEY_PATH.exists(),
     )
 
 
@@ -1913,6 +1920,24 @@ def settings_openai_key_save():
     if not key:
         return render_template("error.html", message="Paste an OpenAI API key."), 400
     _write_secret_file(OPENAI_KEY_PATH, key + "\n")
+    return redirect(url_for("settings_connect_page"))
+
+
+@app.post("/settings/kakao-key")
+def settings_kakao_key_save():
+    key = (request.form.get("kakao_rest_api_key") or "").strip()
+    if not key:
+        return render_template("error.html", message="Paste a Kakao REST API key."), 400
+    _write_secret_file(KAKAO_KEY_PATH, key + "\n")
+    return redirect(url_for("settings_connect_page"))
+
+
+@app.post("/settings/yahoo-jp-key")
+def settings_yahoo_jp_key_save():
+    client_id = (request.form.get("yahoo_jp_client_id") or "").strip()
+    if not client_id:
+        return render_template("error.html", message="Paste a Yahoo! JAPAN Client ID."), 400
+    _write_secret_file(YAHOO_JP_KEY_PATH, client_id + "\n")
     return redirect(url_for("settings_connect_page"))
 
 

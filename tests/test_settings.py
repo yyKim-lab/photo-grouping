@@ -267,6 +267,62 @@ class LLMCredentialsSaveTests(SettingsTestCase):
         self.assertFalse(self.openai_path.exists())
 
 
+class GeocodingKeySaveTests(SettingsTestCase):
+    """Mirrors LLMCredentialsSaveTests above — same save/badge shape,
+    for the two optional regional reverse-geocoding keys."""
+
+    def setUp(self):
+        super().setUp()
+        self.kakao_path = self.tmp / "secrets" / "kakao_rest_api_key.txt"
+        self.yahoo_jp_path = self.tmp / "secrets" / "yahoo_jp_client_id.txt"
+        self._patches = [
+            patch("photo_grouping.web.KAKAO_KEY_PATH", self.kakao_path),
+            patch("photo_grouping.web.YAHOO_JP_KEY_PATH", self.yahoo_jp_path),
+        ]
+        for p in self._patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self._patches:
+            p.stop()
+        super().tearDown()
+
+    def test_kakao_key_is_saved_and_locked_down(self):
+        resp = self.client.post("/settings/kakao-key", data={"kakao_rest_api_key": " abc123 "})
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(self.kakao_path.read_text(), "abc123\n")
+        self.assertEqual(self.kakao_path.stat().st_mode & 0o777, 0o600)
+
+    def test_yahoo_jp_client_id_is_saved(self):
+        resp = self.client.post("/settings/yahoo-jp-key", data={"yahoo_jp_client_id": "client-xyz"})
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(self.yahoo_jp_path.read_text(), "client-xyz\n")
+
+    def test_empty_kakao_key_is_rejected(self):
+        resp = self.client.post("/settings/kakao-key", data={"kakao_rest_api_key": "  "})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(self.kakao_path.exists())
+
+    def test_empty_yahoo_jp_client_id_is_rejected(self):
+        resp = self.client.post("/settings/yahoo-jp-key", data={"yahoo_jp_client_id": ""})
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(self.yahoo_jp_path.exists())
+
+    def test_settings_pages_reflect_configured_status(self):
+        self.client.post("/settings/kakao-key", data={"kakao_rest_api_key": "abc123"})
+
+        for path in ("/settings", "/settings/connect"):
+            resp = self.client.get(path)
+            self.assertEqual(resp.status_code, 200, path)
+            body = resp.get_data(as_text=True)
+            self.assertIn("카카오", body, path)  # ui_language defaults to Korean
+        # Kakao configured, Yahoo! JAPAN not.
+        self.assertTrue(self.kakao_path.exists())
+        self.assertFalse(self.yahoo_jp_path.exists())
+
+
 class LLMProviderPreferenceTests(SettingsTestCase):
     def test_defaults_to_auto(self):
         self.assertEqual(repository.get_app_settings(self.conn)["llm_provider"], "")

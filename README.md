@@ -64,12 +64,12 @@ your accounts** in the running app, or set it as an environment variable
 ### 4. Optional: better reverse-geocoding
 
 Place-name suggestions work out of the box via OpenStreetMap. For nicer
-results in Korea or Japan, add a free API key:
-
-```bash
-export KAKAO_REST_API_KEY=...   # developers.kakao.com — Korea
-export YAHOO_JP_CLIENT_ID=...   # developer.yahoo.co.jp — Japan
-```
+results in Korea or Japan — actual venue names instead of just an
+address — add a free API key from [Kakao Developers](https://developers.kakao.com/)
+or the [Yahoo! JAPAN Developer Network](https://developer.yahoo.co.jp/).
+Paste it into **Settings → Connect your accounts** in the running app, or
+set it as an environment variable (`KAKAO_REST_API_KEY` /
+`YAHOO_JP_CLIENT_ID`) before starting the app.
 
 ### Run it
 

@@ -25,9 +25,12 @@ same Nominatim/OSM data, so they return the same administrative addresses.
 They buy rate limit headroom, not better names — and §3 geocodes once per
 cluster, batched, so the limit isn't the binding constraint here.
 
-Configuration is by environment variable, so keys never land in the repo:
-    KAKAO_REST_API_KEY   from developers.kakao.com
-    YAHOO_JP_CLIENT_ID   from developer.yahoo.co.jp
+Key resolution order (same shape as llm.py's provider keys):
+  1. KAKAO_REST_API_KEY / YAHOO_JP_CLIENT_ID environment variable.
+  2. secrets/kakao_rest_api_key.txt / secrets/yahoo_jp_client_id.txt
+     (first line, whitespace-stripped) — what Settings → Connect your
+     accounts writes to when a key is pasted in the running app, so keys
+     never land in the repo either way.
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Callable, Optional
 
 # Must stay ASCII: HTTP headers are latin-1 encoded, so typographic
@@ -70,6 +74,39 @@ JAPAN_BBOX = (24.0, 46.0, 122.9, 154.0)
 def _in_bbox(lat: float, lng: float, bbox: tuple) -> bool:
     lat_min, lat_max, lng_min, lng_max = bbox
     return lat_min <= lat <= lat_max and lng_min <= lng <= lng_max
+
+
+# --- Key resolution — same "env var, then secrets file" shape as
+# llm.py's resolve_api_key()/resolve_openai_key(), duplicated locally
+# rather than shared since the two modules' key sets don't otherwise
+# overlap. ---
+
+
+def _secrets_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "secrets"
+
+
+def _read_key_file(path: Path) -> Optional[str]:
+    if not path.exists():
+        return None
+    content = path.read_text().strip()
+    return content.splitlines()[0].strip() if content else None
+
+
+def resolve_kakao_key(key_path: Optional[Path] = None) -> Optional[str]:
+    env_key = os.environ.get("KAKAO_REST_API_KEY")
+    if env_key:
+        return env_key.strip()
+    path = key_path or (_secrets_dir() / "kakao_rest_api_key.txt")
+    return _read_key_file(path)
+
+
+def resolve_yahoo_jp_client_id(key_path: Optional[Path] = None) -> Optional[str]:
+    env_key = os.environ.get("YAHOO_JP_CLIENT_ID")
+    if env_key:
+        return env_key.strip()
+    path = key_path or (_secrets_dir() / "yahoo_jp_client_id.txt")
+    return _read_key_file(path)
 
 
 def _respect_rate_limit() -> None:
@@ -105,7 +142,7 @@ def kakao(lat: float, lng: float) -> Optional[str]:
     """Kakao Local. Tries a nearby POI first, since a venue name is what
     §3 actually wants, and falls back to the address if there's no POI
     close enough."""
-    key = os.environ.get("KAKAO_REST_API_KEY")
+    key = resolve_kakao_key()
     if not key or not _in_bbox(lat, lng, KOREA_BBOX):
         return None
     headers = {"Authorization": f"KakaoAK {key}"}
@@ -134,7 +171,7 @@ def kakao(lat: float, lng: float) -> Optional[str]:
 
 def yahoo_japan(lat: float, lng: float) -> Optional[str]:
     """Yahoo! JAPAN YOLP reverse geocoder."""
-    client_id = os.environ.get("YAHOO_JP_CLIENT_ID")
+    client_id = resolve_yahoo_jp_client_id()
     if not client_id or not _in_bbox(lat, lng, JAPAN_BBOX):
         return None
     params = urllib.parse.urlencode(
@@ -185,7 +222,7 @@ def reverse_geocode(lat: float, lng: float) -> Optional[str]:
 def kakao_forward(name: str) -> Optional[tuple[float, float]]:
     """Kakao Local keyword search — Korean places/addresses only; returns
     None outside Korea rather than a wrong guess."""
-    key = os.environ.get("KAKAO_REST_API_KEY")
+    key = resolve_kakao_key()
     if not key:
         return None
     headers = {"Authorization": f"KakaoAK {key}"}
@@ -202,7 +239,7 @@ def kakao_forward(name: str) -> Optional[tuple[float, float]]:
 
 def yahoo_japan_forward(name: str) -> Optional[tuple[float, float]]:
     """Yahoo! JAPAN YOLP geocoder — Japanese addresses/places."""
-    client_id = os.environ.get("YAHOO_JP_CLIENT_ID")
+    client_id = resolve_yahoo_jp_client_id()
     if not client_id:
         return None
     params = urllib.parse.urlencode({"query": name, "appid": client_id, "output": "json"})
@@ -263,8 +300,8 @@ def configured_providers() -> list[str]:
     """Which providers can actually answer right now — for surfacing setup
     state rather than silently degrading to Nominatim everywhere."""
     available = ["nominatim"]
-    if os.environ.get("KAKAO_REST_API_KEY"):
+    if resolve_kakao_key():
         available.insert(0, "kakao")
-    if os.environ.get("YAHOO_JP_CLIENT_ID"):
+    if resolve_yahoo_jp_client_id():
         available.insert(-1, "yahoo_japan")
     return available

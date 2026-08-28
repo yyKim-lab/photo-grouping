@@ -70,6 +70,10 @@
       {% if anthropic_configured %}✅{% else %}—{% endif %}</span>
     <span>{{ t('settings.openai_heading') }}
       {% if openai_configured %}✅{% else %}—{% endif %}</span>
+    <span>{{ t('settings.kakao_heading') }}
+      {% if kakao_configured %}✅{% else %}—{% endif %}</span>
+    <span>{{ t('settings.yahoo_jp_heading') }}
+      {% if yahoo_jp_configured %}✅{% else %}—{% endif %}</span>
   </div>
   <p style="margin-top:.9rem;">
     <a class="btn primary" href="{{ url_for('settings_connect_page') }}">{{ t('settings.manage_connections') }}</a>
