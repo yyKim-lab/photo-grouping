@@ -127,7 +127,7 @@
   "import.google_missing_body": "Google Photosから写真をインポートするには、先にGoogleアカウントを連携してください。",
   "import.gps_howto_note": "この方法はGoogle Photosから取り込んだ写真にのみ関係し、いつ再実行しても安全です — すでに補完済みの写真は自動的にスキップされます。",
   "import.gps_howto_path_hint": "上記のパスは一例です — 実際に展開した場所が違う場合は、その実際のパスに置き換えてください。",
-  "import.gps_howto_step1_body": "Google Takeoutにアクセスし、すべての項目の選択を解除してから、Google Photosのみを選択します。エクスポートを作成してください — このMacではダウンロードフォルダに保存されます（写真が多い場合は複数の.zipファイルに分かれることがあります）。そこで展開してください。展開後のフォルダ構成がどうなっていても構いません — 次の手順ですべてのサブフォルダを検索するためです。",
+  "import.gps_howto_step1_body": "Google Takeoutにアクセスし、すべての項目の選択を解除してから、Google Photosのみを選択します。エクスポートを作成してください — 通常はブラウザの既定のダウンロードフォルダに保存されます（写真が多い場合は複数の.zipファイルに分かれることがあります）。そこで展開してください。展開後のフォルダ構成がどうなっていても構いません — 次の手順ですべてのサブフォルダを検索するためです。",
   "import.gps_howto_step1_title": "1. Google Takeoutで写真をエクスポート",
   "import.gps_howto_step2_body": "ターミナルでアプリのフォルダに移動し、次を実行してください:",
   "import.gps_howto_step2_title": "2. 位置情報を補完するコマンドを実行",

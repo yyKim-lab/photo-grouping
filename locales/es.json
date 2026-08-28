@@ -127,7 +127,7 @@
   "import.google_missing_body": "Conecta primero una cuenta de Google para importar fotos desde Google Photos.",
   "import.gps_howto_note": "Esto solo afecta a las fotos importadas desde Google Photos, y es seguro ejecutarlo cuando quieras — las fotos que ya tienen la ubicación se omiten automáticamente.",
   "import.gps_howto_path_hint": "La ruta anterior es solo un ejemplo — sustitúyela por la ubicación real si tu exportación descomprimida terminó en otro lugar.",
-  "import.gps_howto_step1_body": "Ve a Google Takeout, deselecciona todo y luego selecciona solo Google Photos. Crea la exportación — en este Mac se descargará a tu carpeta de Descargas (como varios archivos .zip si tienes una biblioteca grande). Descomprímela ahí; no importa cómo queden anidadas las carpetas después, porque el siguiente paso busca en todas las subcarpetas.",
+  "import.gps_howto_step1_body": "Ve a Google Takeout, deselecciona todo y luego selecciona solo Google Photos. Crea la exportación — normalmente se descargará a la carpeta de descargas predeterminada de tu navegador (como varios archivos .zip si tienes una biblioteca grande). Descomprímela ahí; no importa cómo queden anidadas las carpetas después, porque el siguiente paso busca en todas las subcarpetas.",
   "import.gps_howto_step1_title": "1. Exporta tus fotos desde Google Takeout",
   "import.gps_howto_step2_body": "En una terminal, desde la carpeta de la app, ejecuta:",
   "import.gps_howto_step2_title": "2. Ejecuta los comandos de relleno de GPS",
