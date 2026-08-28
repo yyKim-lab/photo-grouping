@@ -96,6 +96,13 @@
     <p class="muted" style="font-size:.85rem; margin-top:.5rem;">{{ t('entry.edited_note') }}</p>
   {% endif %}
 
+  <div style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border);">
+    <form method="post" action="{{ url_for('autobio_entry_delete', date=date) }}"
+          onsubmit="return confirm({{ t('entry.delete_confirm') | tojson }});">
+      <button type="submit">{{ t('entry.delete') }}</button>
+    </form>
+  </div>
+
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       document.querySelectorAll(".segment-stepper").forEach(function (stepper) {

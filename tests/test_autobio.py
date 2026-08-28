@@ -802,6 +802,22 @@ class AutobioRoutesTests(AutobioTestCase):
         response = self.client.get("/")
         self.assertIn(b'href="/autobio"', response.data)
 
+    def test_delete_route_removes_the_entry_and_redirects(self):
+        with self.conn:
+            repository.save_autobio_draft(
+                self.conn, date="2026-08-14", segments=[], draft_text="Draft.", has_unlabeled=False
+            )
+
+        response = self.client.post("/autobio/2026-08-14/delete")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIsNone(repository.get_autobio_entry(self.conn, "2026-08-14"))
+
+    def test_deleting_a_nonexistent_entry_is_a_harmless_no_op(self):
+        response = self.client.post("/autobio/2026-08-14/delete")
+
+        self.assertEqual(response.status_code, 302)
+
 
 class AutobioSegmentRoutesTests(AutobioTestCase):
     def _seed_two_segment_entry(self, photo_id_a, photo_id_b):
@@ -1289,6 +1305,18 @@ class AutobioSummaryRoutesTests(AutobioTestCase):
         self.assertEqual(
             repository.get_autobio_summary(self.conn, "2026-08-10", "2026-08-14")["text"], "My edit."
         )
+
+    def test_summary_delete_route_removes_it_and_redirects(self):
+        with self.conn:
+            repository.save_autobio_summary(
+                self.conn, start_date="2026-08-10", end_date="2026-08-14",
+                source_entry_ids=[], text="Draft.",
+            )
+
+        response = self.client.post("/autobio/summary/2026-08-10/2026-08-14/delete")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIsNone(repository.get_autobio_summary(self.conn, "2026-08-10", "2026-08-14"))
 
     def test_summary_export_md(self):
         with self.conn:

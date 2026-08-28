@@ -370,6 +370,34 @@ def load_labeling_queue(conn: sqlite3.Connection) -> list[dict]:
     return sorted(items, key=lambda item: -item["instance_count"])
 
 
+def photos_with_nothing_detected(conn: sqlite3.Connection) -> list[dict]:
+    """Photos with no detected face *and* no location at all — a real gap
+    found in practice: load_labeling_queue() above is entirely cluster-
+    based (a face_cluster or location_cluster row), so a photo that never
+    produced either (no face detected, and no GPS to cluster by) never
+    appears in the queue, in People, or in Places — it's structurally
+    invisible with no prompt to do anything about it. There's no cluster
+    to "label" here, so this isn't added as a queue item; instead
+    queue_empty.html links each one straight to its own photo_detail
+    page, which already has a manual "type a place name" flow that works
+    without GPS (see set_photo_location_by_name)."""
+    return [
+        dict(r)
+        for r in conn.execute(
+            """
+            SELECT p.id AS photo_id,
+                   COALESCE(p.taken_at_override, p.taken_at) AS taken_at
+            FROM photo p
+            LEFT JOIN photo_location pl ON pl.photo_id = p.id
+            LEFT JOIN face_instance fi ON fi.photo_id = p.id AND fi.false_positive_at IS NULL
+            WHERE pl.photo_id IS NULL AND fi.id IS NULL
+            GROUP BY p.id
+            ORDER BY taken_at DESC
+            """
+        )
+    ]
+
+
 def representative_face(conn: sqlite3.Connection, face_cluster_id: int) -> Optional[dict]:
     """The face instance to show on a cluster's card: the physically
     largest one, since a bigger crop is a clearer look at the person than
@@ -1268,6 +1296,16 @@ def set_event_description(conn: sqlite3.Connection, event_id: int, description: 
     )
 
 
+def set_event_autobio_excluded(conn: sqlite3.Connection, event_id: int, excluded: bool) -> None:
+    """Whether photos tagged with this event are dropped from Diary/Autobio
+    generation entirely — see photos_for_date() and migration
+    0015_event_autobio_exclude.sql."""
+    conn.execute(
+        "UPDATE event SET excluded_from_autobio = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+        (1 if excluded else 0, event_id),
+    )
+
+
 def delete_event(conn: sqlite3.Connection, event_id: int) -> None:
     """Events are pure user data with nothing to preserve for undo the way
     a detected face cluster has (there's no re-detection to protect against)
@@ -1282,7 +1320,8 @@ def list_events(conn: sqlite3.Connection) -> list[dict]:
         dict(r)
         for r in conn.execute(
             """
-            SELECT e.id, e.name, e.description, COUNT(pe.photo_id) AS instance_count
+            SELECT e.id, e.name, e.description, e.excluded_from_autobio,
+                   COUNT(pe.photo_id) AS instance_count
             FROM event e LEFT JOIN photo_event pe ON pe.event_id = e.id
             GROUP BY e.id
             ORDER BY instance_count DESC, e.name
@@ -1515,16 +1554,29 @@ def photos_for_date(conn: sqlite3.Connection, date: str) -> list[dict]:
     ):
         by_id[r["photo_id"]]["places"].append(r["name"])
 
+    # A photo tagged with an excluded event is dropped from the day
+    # entirely, not just its event name hidden — someone excluding a group
+    # from Diary/Autobio wants those photos out of the AI prompt, not
+    # mentioned-minus-the-label. If a photo belongs to more than one event
+    # and only some are excluded, excluding wins: the whole point is "never
+    # let this show up in generated text."
+    excluded_photo_ids = set()
     for r in conn.execute(
         f"""
-        SELECT pe.photo_id, e.name
+        SELECT pe.photo_id, e.name, e.excluded_from_autobio
         FROM photo_event pe
         JOIN event e ON e.id = pe.event_id
         WHERE pe.photo_id IN ({placeholders})
         """,
         ids,
     ):
-        by_id[r["photo_id"]]["events"].append(r["name"])
+        if r["excluded_from_autobio"]:
+            excluded_photo_ids.add(r["photo_id"])
+        else:
+            by_id[r["photo_id"]]["events"].append(r["name"])
+
+    if excluded_photo_ids:
+        photos = [p for p in photos if p["photo_id"] not in excluded_photo_ids]
 
     return photos
 
@@ -1684,6 +1736,16 @@ def list_autobio_entries(conn: sqlite3.Connection) -> list[dict]:
     ]
 
 
+def delete_autobio_entry(conn: sqlite3.Connection, date: str) -> None:
+    """Removes a generated Diary entry entirely — a fresh "Generate
+    narrative" for the same date starts over from scratch, same as if it
+    had never been drafted. Doesn't touch the underlying photos or their
+    labels; only the drafted/edited text. Any combined narrative already
+    built from this date is untouched too — autobio_summary stores its
+    own text snapshot, not a live reference back to autobio_entry."""
+    conn.execute("DELETE FROM autobio_entry WHERE date = ?", (date,))
+
+
 # ---------------------------------------------------------------------
 # Autobio combined narrative (§4.6 "Combined narrative") — a date-range
 # summary built from already-generated/edited daily entries.
@@ -1763,6 +1825,15 @@ def list_autobio_summaries(conn: sqlite3.Connection) -> list[dict]:
         _autobio_summary_dict(r)
         for r in conn.execute("SELECT * FROM autobio_summary ORDER BY start_date DESC")
     ]
+
+
+def delete_autobio_summary(conn: sqlite3.Connection, start_date: str, end_date: str) -> None:
+    """Removes a combined narrative — the daily Diary entries it was built
+    from are untouched (see delete_autobio_entry's docstring; the
+    reference is one-directional)."""
+    conn.execute(
+        "DELETE FROM autobio_summary WHERE start_date = ? AND end_date = ?", (start_date, end_date)
+    )
 
 
 def autobio_entry_dates_for_ids(conn: sqlite3.Connection, entry_ids: list[int]) -> list[str]:

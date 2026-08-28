@@ -20,6 +20,18 @@
   <button type="submit" style="margin-top:.5rem;">{{ t('common.save_description') }}</button>
 </form>
 
+<form method="post" action="{{ url_for('event_set_autobio_excluded', event_id=event.id) }}"
+      onchange="this.submit()" style="max-width:520px; margin-bottom:2rem;">
+  <label style="display:flex; align-items:flex-start; gap:.5rem; cursor:pointer;">
+    <input type="checkbox" name="excluded" value="1" {{ 'checked' if event.excluded_from_autobio }}
+           style="width:1.05rem; height:1.05rem; margin-top:.15rem; flex-shrink:0;">
+    <span>
+      {{ t('group_detail.autobio_exclude_label') }}
+      <br><span class="muted" style="font-size:.82rem;">{{ t('group_detail.autobio_exclude_note') }}</span>
+    </span>
+  </label>
+</form>
+
 {% if photos %}
   <div class="grid">
     {% for photo in photos %}

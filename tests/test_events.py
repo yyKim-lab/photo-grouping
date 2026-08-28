@@ -255,6 +255,91 @@ class RouteTests(EventTestCase):
 
         self.assertEqual(self.client.get(f"/event/{event_id}/cover").status_code, 404)
 
+    def test_autobio_exclude_route_persists(self):
+        with self.conn:
+            event_id = repository.create_event(self.conn, "여행")
+
+        response = self.client.post(f"/event/{event_id}/autobio-exclude", data={"excluded": "1"})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            repository.event_detail(self.conn, event_id)["event"]["excluded_from_autobio"], 1
+        )
+
+    def test_autobio_exclude_route_can_be_unset(self):
+        with self.conn:
+            event_id = repository.create_event(self.conn, "여행")
+            repository.set_event_autobio_excluded(self.conn, event_id, True)
+
+        # An unchecked checkbox submits no "excluded" field at all — the
+        # route must treat that as false, not require an explicit "0".
+        self.client.post(f"/event/{event_id}/autobio-exclude", data={})
+
+        self.assertEqual(
+            repository.event_detail(self.conn, event_id)["event"]["excluded_from_autobio"], 0
+        )
+
+    def test_excluded_badge_shows_on_the_groups_index(self):
+        with self.conn:
+            event_id = repository.create_event(self.conn, "여행")
+            repository.set_event_autobio_excluded(self.conn, event_id, True)
+
+        response = self.client.get("/events")
+
+        # "일기/자서전 제외됨" (part of groups_page.excluded_badge) —
+        # ui_language defaults to Korean.
+        self.assertIn("일기/자서전 제외됨".encode(), response.data)
+
+
+class AutobioExclusionAffectsPhotosForDateTests(EventTestCase):
+    """The actual point of the feature: photos_for_date(), which feeds the
+    Autobio/Diary generation prompt, must drop photos tagged with an
+    excluded event — not just hide the event's name."""
+
+    def test_a_photo_only_in_an_excluded_event_is_dropped_entirely(self):
+        photo_id = self._photo()
+        with self.conn:
+            event_id = repository.create_event(self.conn, "비공개 모임")
+            repository.add_photos_to_event(self.conn, event_id, [photo_id])
+            repository.set_event_autobio_excluded(self.conn, event_id, True)
+
+        photos = repository.photos_for_date(self.conn, "2026-04-11")
+
+        self.assertEqual(photos, [])
+
+    def test_a_photo_in_a_non_excluded_event_still_appears(self):
+        photo_id = self._photo()
+        with self.conn:
+            event_id = repository.create_event(self.conn, "여행")
+            repository.add_photos_to_event(self.conn, event_id, [photo_id])
+
+        photos = repository.photos_for_date(self.conn, "2026-04-11")
+
+        self.assertEqual(len(photos), 1)
+        self.assertEqual(photos[0]["events"], ["여행"])
+
+    def test_a_photo_in_both_an_excluded_and_a_normal_event_is_still_dropped(self):
+        # Excluding wins over including — the whole point is "never let
+        # this photo show up in generated text," regardless of its other tags.
+        photo_id = self._photo()
+        with self.conn:
+            normal_id = repository.create_event(self.conn, "여행")
+            excluded_id = repository.create_event(self.conn, "비공개 모임")
+            repository.add_photos_to_event(self.conn, normal_id, [photo_id])
+            repository.add_photos_to_event(self.conn, excluded_id, [photo_id])
+            repository.set_event_autobio_excluded(self.conn, excluded_id, True)
+
+        photos = repository.photos_for_date(self.conn, "2026-04-11")
+
+        self.assertEqual(photos, [])
+
+    def test_a_photo_with_no_event_at_all_is_unaffected(self):
+        self._photo()
+
+        photos = repository.photos_for_date(self.conn, "2026-04-11")
+
+        self.assertEqual(len(photos), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

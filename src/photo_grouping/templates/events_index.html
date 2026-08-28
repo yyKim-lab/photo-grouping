@@ -13,6 +13,7 @@
         <img src="{{ url_for('event_cover', event_id=event.id) }}" alt="" loading="lazy">
         <div class="label">
           {{ event.name }}
+          {% if event.excluded_from_autobio %}<span class="badge">{{ t('groups_page.excluded_badge') }}</span>{% endif %}
           <div class="count">{{ t('count.photos', count=event.instance_count) }}</div>
         </div>
       </a>

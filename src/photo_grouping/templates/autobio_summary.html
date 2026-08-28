@@ -37,6 +37,13 @@
     <input type="hidden" name="end_date" value="{{ end_date }}">
     <button type="submit">{{ t('summary.regenerate') }}</button>
   </form>
+
+  <div style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border);">
+    <form method="post" action="{{ url_for('autobio_summary_delete', start_date=start_date, end_date=end_date) }}"
+          onsubmit="return confirm({{ t('summary.delete_confirm') | tojson }});">
+      <button type="submit">{{ t('summary.delete') }}</button>
+    </form>
+  </div>
 {% endif %}
 
 {% endblock %}

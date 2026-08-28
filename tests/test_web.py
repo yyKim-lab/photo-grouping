@@ -122,6 +122,36 @@ class QueueTests(WebTestCase):
         response = self.client.get("/queue")
         self.assertIn("더 이상 라벨링할 항목이 없습니다".encode(), response.data)  # ui_language defaults to Korean
 
+    def test_a_photo_with_no_face_and_no_location_is_not_silently_invisible(self):
+        # Real bug found in practice: load_labeling_queue() is entirely
+        # cluster-based, so a photo with nothing detected at all (no face,
+        # no GPS to cluster by) never appeared in the queue, People, or
+        # Places — nothing ever prompted the user to do anything about it.
+        self._add_photo()
+
+        response = self.client.get("/queue")
+
+        self.assertEqual(response.status_code, 200)
+        # "감지된 인물이나 장소 없음" (queue_empty.undetected_heading) —
+        # ui_language defaults to Korean.
+        self.assertIn("감지된 인물이나 장소 없음".encode(), response.data)
+
+    def test_a_photo_with_a_face_is_not_listed_as_undetected(self):
+        photo_id = self._add_photo()
+        self._add_face_cluster([photo_id])
+
+        undetected = repository.photos_with_nothing_detected(self.conn)
+
+        self.assertNotIn(photo_id, [p["photo_id"] for p in undetected])
+
+    def test_a_photo_with_a_location_is_not_listed_as_undetected(self):
+        photo_id = self._add_photo()
+        self._add_place_cluster([photo_id])
+
+        undetected = repository.photos_with_nothing_detected(self.conn)
+
+        self.assertNotIn(photo_id, [p["photo_id"] for p in undetected])
+
     def test_largest_cluster_is_offered_first(self):
         # Naming the person in 3 photos resolves more of the library per
         # decision than naming a one-off, so the queue front-loads it.

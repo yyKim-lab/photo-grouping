@@ -59,7 +59,7 @@ OPENAI_KEY_PATH = _REPO_ROOT / "secrets" / "openai_api_key.txt"
 DEFAULT_ORIGINALS_DIR = _REPO_ROOT / "data" / "originals"
 # Footer link (base.html) — empty until the project has a public repo to
 # point to; set once it exists rather than linking to a 404.
-GITHUB_URL = ""
+GITHUB_URL = "https://github.com/yyKim-lab/photo-grouping"
 
 app = Flask(__name__)
 app.config["DB_PATH"] = DEFAULT_DB_PATH
@@ -176,7 +176,11 @@ def queue():
     conn = get_conn()
     items = repository.load_labeling_queue(conn)
     if not items:
-        return render_template("queue_empty.html", merged=_merged_notice())
+        return render_template(
+            "queue_empty.html",
+            merged=_merged_notice(),
+            undetected_photos=repository.photos_with_nothing_detected(conn),
+        )
 
     item = items[0]
     context = {
@@ -953,6 +957,15 @@ def event_remove_photo(event_id):
     return redirect(url_for("event_detail", event_id=event_id))
 
 
+@app.post("/event/<int:event_id>/autobio-exclude")
+def event_set_autobio_excluded(event_id):
+    conn = get_conn()
+    excluded = request.form.get("excluded") == "1"
+    with conn:
+        repository.set_event_autobio_excluded(conn, event_id, excluded)
+    return redirect(url_for("event_detail", event_id=event_id))
+
+
 @app.post("/event/<int:event_id>/delete")
 def event_delete(event_id):
     conn = get_conn()
@@ -1563,6 +1576,14 @@ def autobio_segment_regenerate(date, index):
     return redirect(url_for("autobio_entry", date=date))
 
 
+@app.post("/autobio/<date>/delete")
+def autobio_entry_delete(date):
+    conn = get_conn()
+    with conn:
+        repository.delete_autobio_entry(conn, date)
+    return redirect(url_for("autobio_daily_index"))
+
+
 @app.get("/autobio/<date>/export/<fmt>")
 def autobio_export(date, fmt):
     conn = get_conn()
@@ -1630,6 +1651,14 @@ def autobio_summary_save(start_date, end_date):
     with conn:
         repository.set_autobio_summary_text(conn, start_date, end_date, request.form.get("text") or "")
     return redirect(url_for("autobio_summary_view", start_date=start_date, end_date=end_date))
+
+
+@app.post("/autobio/summary/<start_date>/<end_date>/delete")
+def autobio_summary_delete(start_date, end_date):
+    conn = get_conn()
+    with conn:
+        repository.delete_autobio_summary(conn, start_date, end_date)
+    return redirect(url_for("autobio_index"))
 
 
 @app.get("/autobio/summary/<start_date>/<end_date>/export/<fmt>")

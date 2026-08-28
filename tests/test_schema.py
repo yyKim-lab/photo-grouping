@@ -45,6 +45,7 @@ class SchemaTests(unittest.TestCase):
                 "0012_narrative_and_ui_language.sql",
                 "0013_llm_provider.sql",
                 "0014_originals_dir.sql",
+                "0015_event_autobio_exclude.sql",
             ],
         )
 

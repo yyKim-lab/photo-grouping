@@ -9,4 +9,19 @@
   </p>
   <p style="margin-top:1.5rem;"><a class="btn" href="{{ url_for('index') }}">{{ t('common.back_to_albums') }}</a></p>
 </div>
+
+{% if undetected_photos %}
+  <h2 style="margin-top:2.5rem;">{{ t('queue_empty.undetected_heading') }}</h2>
+  <p class="muted" style="max-width:560px;">{{ t('queue_empty.undetected_body') }}</p>
+  <div class="grid" style="margin-top:1rem;">
+    {% for photo in undetected_photos %}
+      <a class="card" href="{{ url_for('photo_detail', photo_id=photo.photo_id) }}">
+        <img src="{{ url_for('photo_thumb', photo_id=photo.photo_id) }}" alt="" loading="lazy">
+        <div class="label">
+          <div class="count">{{ (photo.taken_at or '')[:10] }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}
 {% endblock %}
