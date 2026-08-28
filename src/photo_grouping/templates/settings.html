@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Settings — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('settings.title') }}</h1>
+
+<h2>{{ t('settings.voice_heading') }}</h2>
+<p class="muted" style="max-width:520px;">{{ t('settings.voice_body') }}</p>
+<form method="post" action="{{ url_for('settings_speech_language_save') }}" style="margin-top:1rem;">
+  <select name="speech_language" onchange="this.form.submit()"
+          style="font: inherit; padding:.55rem .7rem; border-radius:8px;
+                 border:1px solid var(--border); background:var(--bg); color:var(--text);">
+    {% for code, label in languages %}
+      <option value="{{ code }}" {{ 'selected' if code == settings.speech_language }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</form>
+<p class="muted" style="font-size:.82rem; margin-top:.5rem;">{{ t('settings.voice_note') }}</p>
+
+<h2>{{ t('settings.narrative_heading') }}</h2>
+<p class="muted" style="max-width:520px;">{{ t('settings.narrative_body') }}</p>
+<form method="post" action="{{ url_for('settings_narrative_language_save') }}" style="margin-top:1rem;">
+  <select name="narrative_language" onchange="this.form.submit()"
+          style="font: inherit; padding:.55rem .7rem; border-radius:8px;
+                 border:1px solid var(--border); background:var(--bg); color:var(--text);">
+    {% for code, label in narrative_languages %}
+      <option value="{{ code }}" {{ 'selected' if code == settings.narrative_language }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<h2>{{ t('settings.ui_heading') }}</h2>
+<p class="muted" style="max-width:520px;">{{ t('settings.ui_body') }}</p>
+<form method="post" action="{{ url_for('settings_ui_language_save') }}" style="margin-top:1rem;">
+  <select name="ui_language" onchange="this.form.submit()"
+          style="font: inherit; padding:.55rem .7rem; border-radius:8px;
+                 border:1px solid var(--border); background:var(--bg); color:var(--text);">
+    {% for code, label in ui_languages %}
+      <option value="{{ code }}" {{ 'selected' if code == settings.ui_language }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<hr style="border:none; border-top:1px solid var(--border); margin:2.5rem 0;">
+
+<h2>{{ t('settings.storage_heading') }}</h2>
+<p class="muted" style="max-width:520px;">{{ t('settings.storage_body') }}</p>
+{% if not settings.originals_dir %}
+  <p class="muted" style="font-size:.82rem; max-width:520px;">
+    {{ t('settings.storage_using_default', path=default_originals_dir) }}
+  </p>
+{% endif %}
+<form method="post" action="{{ url_for('settings_originals_dir_save') }}"
+      style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; max-width:520px; margin-top:.75rem;">
+  <input type="text" name="originals_dir" value="{{ settings.originals_dir }}"
+         placeholder="{{ t('settings.storage_placeholder') }}" style="flex:1; min-width:220px;">
+  <button class="primary" type="submit">{{ t('settings.save') }}</button>
+</form>
+
+<hr style="border:none; border-top:1px solid var(--border); margin:2.5rem 0;">
+
+<h2>{{ t('settings.connect_heading') }}</h2>
+<p class="muted" style="max-width:560px;">{{ t('settings.connect_intro') }}</p>
+
+<div class="card" style="max-width:560px; padding:1rem 1.1rem; margin-top:1rem;">
+  <div style="display:flex; align-items:center; gap:.9rem; flex-wrap:wrap; font-size:.88rem;">
+    <span>{{ t('settings.google_heading') }}
+      {% if google_configured %}✅{% else %}—{% endif %}</span>
+    <span>{{ t('settings.anthropic_heading') }}
+      {% if anthropic_configured %}✅{% else %}—{% endif %}</span>
+    <span>{{ t('settings.openai_heading') }}
+      {% if openai_configured %}✅{% else %}—{% endif %}</span>
+  </div>
+  <p style="margin-top:.9rem;">
+    <a class="btn primary" href="{{ url_for('settings_connect_page') }}">{{ t('settings.manage_connections') }}</a>
+  </p>
+</div>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Import from this device — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('import.local_title') }}</h1>
+
+<p class="muted" style="max-width:520px;">
+  {{ t('import.local_body') }}
+</p>
+
+<form method="post" action="{{ url_for('import_local_upload') }}" enctype="multipart/form-data" style="margin-top:1.25rem;">
+  <label for="files-input" class="btn primary" style="display:inline-block;">{{ t('import.local_choose') }}</label>
+  <input id="files-input" type="file" name="files" multiple accept="image/*"
+         style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;">
+  <p id="files-summary" class="muted" style="margin:.75rem 0;">{{ t('import.local_no_files') }}</p>
+  <button class="primary" type="submit" id="upload-btn" disabled>{{ t('import.local_import_button') }}</button>
+</form>
+
+<p class="muted" style="max-width:520px; margin-top:1.5rem;">
+  <a href="{{ url_for('import_start_page') }}">{{ t('import.local_google_alt_link') }}</a>
+</p>
+
+<script>
+  (function () {
+    var input = document.getElementById("files-input");
+    var summary = document.getElementById("files-summary");
+    var button = document.getElementById("upload-btn");
+    var noFilesText = {{ t('import.local_no_files') | tojson }};
+    var chosenOneText = {{ t('import.local_files_chosen', count=1) | tojson }};
+    // No count passed here on purpose: t() then leaves the "{n}" placeholder
+    // literal in the returned template string (see i18n.py — kwargs is
+    // empty, so .format() never runs), which lets this one string serve
+    // every count above 1 via a plain JS substitution below.
+    var chosenOtherTemplate = {{ t('import.local_files_chosen') | tojson }};
+    input.addEventListener("change", function () {
+      var n = input.files.length;
+      summary.textContent = n === 0 ? noFilesText
+        : n === 1 ? chosenOneText
+        : chosenOtherTemplate.replace("{n}", n);
+      button.disabled = n === 0;
+    });
+  })();
+</script>
+
+{% endblock %}

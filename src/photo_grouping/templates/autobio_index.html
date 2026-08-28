@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Autobio — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('autobio.title') }}</h1>
+<p class="muted" style="max-width:520px;">{{ t('autobio.subtitle') }}</p>
+
+{% if llm_configured %}
+  <form method="post" action="{{ url_for('autobio_generate_range') }}"
+        style="display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; max-width:520px; margin:1rem 0;">
+    <input type="date" name="start_date" required style="flex:1; min-width:150px; font: inherit; padding:.55rem .7rem;
+           border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+    <span class="muted">{{ t('autobio.to') }}</span>
+    <input type="date" name="end_date" required style="flex:1; min-width:150px; font: inherit; padding:.55rem .7rem;
+           border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+    <button class="primary" type="submit">{{ t('autobio.generate') }}</button>
+  </form>
+
+  {% set diary_link = '<a href="' + url_for('autobio_daily_index') + '">' + t('nav.diary') + '</a>' %}
+  <p class="muted" style="max-width:520px;">{{ t('autobio.single_day_hint', diary_link=diary_link) | safe }}</p>
+{% else %}
+  <div class="notice" style="margin-top:1rem;">
+    <span>{{ t('autobio.llm_missing_body') }}</span>
+    <span class="spacer"></span>
+    <a class="btn primary" href="{{ url_for('settings_connect_page') }}">{{ t('settings.manage_connections') }}</a>
+  </div>
+{% endif %}
+
+<h2>{{ t('autobio.combined_heading') }}</h2>
+{% if summaries %}
+  <div style="display:flex; flex-direction:column; gap:.6rem; max-width:640px;">
+    {% for summary in summaries %}
+      <div class="notice" style="flex-direction:column; align-items:flex-start;">
+        <a href="{{ url_for('autobio_summary_view', start_date=summary.start_date, end_date=summary.end_date) }}"
+           style="text-decoration:none; color:inherit; width:100%;">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:.5rem;">
+            <strong>{{ summary.start_date }} &ndash; {{ summary.end_date }}</strong>
+          </div>
+          <p class="muted" style="margin:.3rem 0 0; font-size:.85rem;">
+            {{ summary.text[:160] }}{% if summary.text|length > 160 %}…{% endif %}
+          </p>
+        </a>
+        {% if summary.entry_dates %}
+          <p style="margin:.5rem 0 0; font-size:.78rem; display:flex; flex-wrap:wrap; gap:.3rem; align-items:center;">
+            <span class="muted">{{ t('autobio.from_label') }}</span>
+            {% for d in summary.entry_dates %}
+              <a href="{{ url_for('autobio_entry', date=d) }}" class="chip" style="padding:.15rem .5rem;">{{ d }}</a>
+            {% endfor %}
+          </p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="muted">{{ t('autobio.empty') }}</p>
+{% endif %}
+
+{% endblock %}

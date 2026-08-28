@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Seed import — Photo Grouping{% endblock %}
+{% block content %}
+<div class="empty">
+  <h1>{{ t('seed.done_title', count=saved) }}</h1>
+  <p>{{ t('seed.done_body') }}</p>
+  <p style="margin-top:1.5rem; display:flex; flex-wrap:wrap; gap:.6rem; justify-content:center;">
+    <a class="btn" href="{{ url_for('seed_import_form') }}">{{ t('import.more_button') }}</a>
+    <a class="btn primary" href="{{ url_for('index') }}">{{ t('common.back_to_albums') }}</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Importing… — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('import.progress_title') }}</h1>
+
+{% set count_span = '<span id="progress-count">0</span>' %}
+<p class="muted">{{ t('import.progress_count', current=count_span, total=picked_count) | safe }}</p>
+<p id="progress-last" class="muted" style="min-height:1.3em;"></p>
+
+<script>
+  (function () {
+    var jobId = {{ job_id | tojson }};
+    var countEl = document.getElementById("progress-count");
+    var lastEl = document.getElementById("progress-last");
+    var i18n = {
+      starting: {{ t('import.progress_starting') | tojson }},
+      errorPrefix: {{ t('import.progress_error', error='') | tojson }},
+    };
+
+    function poll() {
+      fetch("{{ url_for('import_progress') }}?job_id=" + encodeURIComponent(jobId))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) { setTimeout(poll, 1000); return; }
+          countEl.textContent = data.current;
+          if (data.state === "done") {
+            window.location.href =
+              "{{ url_for('import_result') }}?job_id=" + encodeURIComponent(jobId);
+          } else if (data.state === "error") {
+            lastEl.textContent = i18n.errorPrefix + data.error;
+          } else {
+            lastEl.textContent = data.last || i18n.starting;
+            setTimeout(poll, 800);
+          }
+        })
+        .catch(function () { setTimeout(poll, 1500); });
+    }
+
+    poll();
+  })();
+</script>
+
+{% endblock %}

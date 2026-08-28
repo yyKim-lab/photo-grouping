@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Seed import — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('seed.form_title') }}</h1>
+<p class="muted" style="max-width:560px;">
+  {{ t('seed.form_body') }}
+</p>
+
+<form method="post" action="{{ url_for('seed_import_detect') }}" enctype="multipart/form-data"
+      style="margin-top:1.5rem; display:flex; flex-direction:column; gap:.8rem; max-width:420px;">
+  <input type="file" name="screenshot" accept="image/*" required>
+  <button class="primary" type="submit">{{ t('seed.detect_button') }}</button>
+</form>
+
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ event.name }} — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ event.name }}</h1>
+<p class="muted">{{ t('count.photos', count=photos|length) }}</p>
+
+<form method="post" action="{{ url_for('event_rename', event_id=event.id) }}"
+      style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin: 1rem 0 1.25rem; max-width:520px;">
+  <input type="text" name="name" value="{{ event.name }}" placeholder="{{ t('group_detail.name_placeholder') }}">
+  <button class="primary" type="submit">{{ t('cluster.rename') }}</button>
+</form>
+
+<form method="post" action="{{ url_for('event_set_description', event_id=event.id) }}"
+      style="max-width:520px; margin-bottom:2rem;">
+  <textarea name="description" rows="3" placeholder="{{ t('common.description_placeholder') }}"
+            style="width:100%; font: inherit; padding:.6rem .7rem; border-radius:8px;
+                   border:1px solid var(--border); background:var(--bg); color:var(--text);
+                   resize:vertical;">{{ event.description or '' }}</textarea>
+  <button type="submit" style="margin-top:.5rem;">{{ t('common.save_description') }}</button>
+</form>
+
+{% if photos %}
+  <div class="grid">
+    {% for photo in photos %}
+      <div class="card" style="position:relative;">
+        <img src="{{ url_for('photo_thumb', photo_id=photo.photo_id) }}"
+             data-full="{{ url_for('photo_full', photo_id=photo.photo_id) }}"
+             data-caption="{{ (photo.taken_at or '')[:10] }}"
+             onclick="openLightbox(this)" alt="" loading="lazy">
+        <div class="label">
+          <div class="count">
+            {{ (photo.taken_at or '')[:10] }}
+            &middot; <a href="{{ url_for('photo_detail', photo_id=photo.photo_id) }}">{{ t('common.edit') }}</a>
+          </div>
+          <form method="post" action="{{ url_for('event_remove_photo', event_id=event.id) }}" style="margin-top:.3rem;">
+            <input type="hidden" name="photo_id" value="{{ photo.photo_id }}">
+            <button type="submit" style="padding:.35rem .6rem; font-size:.75rem;">{{ t('group_detail.remove_from_group') }}</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  {% set photos_link = '<a href="' + url_for('timeline') + '">' + t('nav.photos') + '</a>' %}
+  <p class="muted">{{ t('group_detail.no_photos', photos_link=photos_link) | safe }}</p>
+{% endif %}
+
+<div style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border);">
+  <form method="post" action="{{ url_for('event_delete', event_id=event.id) }}"
+        onsubmit="return confirm({{ t('group_detail.delete_confirm') | tojson }});">
+    <button type="submit">{{ t('group_detail.delete') }}</button>
+    <span class="muted" style="font-size:.85rem;"> {{ t('group_detail.delete_note') }}</span>
+  </form>
+</div>
+
+{% endblock %}

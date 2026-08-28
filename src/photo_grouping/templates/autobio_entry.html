@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Autobio — {{ date }} — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ date }}</h1>
+<p class="muted">
+  <a href="{{ url_for('autobio_daily_index') }}">{{ t('entry.all_entries') }}</a>
+</p>
+
+{% if not entry %}
+  {% if photo_count == 0 %}
+    <p class="muted" style="margin-top:1.5rem;">{{ t('entry.no_photos') }}</p>
+  {% else %}
+    <p class="muted" style="margin-top:1.5rem;">
+      {{ t('entry.photos_nothing_written', count=photo_count) }}
+    </p>
+    <form method="post" action="{{ url_for('autobio_generate') }}" style="margin-top:1rem;">
+      <input type="hidden" name="date" value="{{ date }}">
+      <button class="primary" type="submit">{{ t('entry.generate_narrative') }}</button>
+    </form>
+  {% endif %}
+{% else %}
+  {% if unlabeled_count %}
+    <div class="notice">
+      <span>{{ t('entry.unlabeled_notice', count=unlabeled_count) }}</span>
+      <span class="spacer"></span>
+      <a class="btn" href="{{ url_for('queue') }}">{{ t('entry.go_label') }}</a>
+    </div>
+  {% endif %}
+
+  <!-- One editable block per segment, per §4.6's per-segment correction
+       flow — not one big textarea for the whole entry. Each segment
+       carries its own source photos (a stepper below it, tap through
+       with the same edit actions as §4.4 via the photo's own page) and
+       can be regenerated on its own once a fix is made, instead of
+       redoing the whole day. -->
+  <div style="max-width:720px;">
+    {% for segment in entry.segments %}
+      {% set idx = loop.index0 %}
+      <div class="autobio-segment" style="padding:1rem 0; {{ 'border-top:1px solid var(--border);' if not loop.first }}">
+        <form method="post" action="{{ url_for('autobio_segment_save', date=date, index=idx) }}">
+          <textarea name="text" rows="3"
+                    style="width:100%; font: inherit; padding:.65rem; border-radius:8px;
+                           border:1px solid var(--border); background:var(--bg); color:var(--text);
+                           resize:vertical;">{{ segment.text }}</textarea>
+          <div style="display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin-top:.5rem;">
+            <button class="primary" type="submit" style="font-size:.85rem; padding:.4rem .7rem;">{{ t('entry.save') }}</button>
+            {% if segment.edited %}<span class="badge">{{ t('entry.edited_badge') }}</span>{% endif %}
+          </div>
+        </form>
+
+        <form method="post" action="{{ url_for('autobio_segment_regenerate', date=date, index=idx) }}"
+              style="margin-top:.5rem;"
+              onsubmit="return confirm({{ t('entry.regenerate_segment_confirm') | tojson }});">
+          <button type="submit" style="font-size:.85rem; padding:.4rem .7rem;">{{ t('entry.regenerate_segment') }}</button>
+        </form>
+
+        {% if segment.source_photo_ids %}
+          <div class="segment-stepper" style="margin-top:.6rem; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem;">
+            <button type="button" class="stepper-prev btn" style="font-size:.85rem; padding:.3rem .6rem;"
+                    aria-label="{{ t('entry.stepper_prev') }}">&lsaquo;</button>
+            <div class="stepper-viewport" style="position:relative; width:70px; height:70px; flex-shrink:0;">
+              {% for pid in segment.source_photo_ids %}
+                <a href="{{ url_for('photo_detail', photo_id=pid) }}" class="stepper-photo"
+                   title="{{ t('entry.stepper_edit_title') }}"
+                   style="display:{{ 'block' if loop.first else 'none' }}; position:absolute; inset:0;">
+                  <img src="{{ url_for('photo_thumb', photo_id=pid) }}"
+                       style="width:100%; height:100%; object-fit:cover; border-radius:6px; display:block;" alt="">
+                </a>
+              {% endfor %}
+            </div>
+            <button type="button" class="stepper-next btn" style="font-size:.85rem; padding:.3rem .6rem;"
+                    aria-label="{{ t('entry.stepper_next') }}">&rsaquo;</button>
+            <span class="stepper-counter muted" style="font-size:.8rem;">1 / {{ segment.source_photo_ids|length }}</span>
+            <span class="muted" style="font-size:.78rem;">{{ t('entry.tap_to_edit') }}</span>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin-top:1rem;">
+    <span class="muted" style="font-size:.85rem;">{{ t('entry.export_whole') }}</span>
+    <a class="btn" href="{{ url_for('autobio_export', date=date, fmt='md') }}">.md</a>
+    <a class="btn" href="{{ url_for('autobio_export', date=date, fmt='txt') }}">.txt</a>
+    <a class="btn" href="{{ url_for('autobio_export', date=date, fmt='docx') }}">.docx</a>
+  </div>
+
+  <form method="post" action="{{ url_for('autobio_generate') }}" style="margin-top:1rem;"
+        onsubmit="return confirm({{ t('entry.regenerate_whole_confirm') | tojson }});">
+    <input type="hidden" name="date" value="{{ date }}">
+    <button type="submit">{{ t('entry.regenerate_whole') }}</button>
+  </form>
+
+  {% if entry.is_edited %}
+    <p class="muted" style="font-size:.85rem; margin-top:.5rem;">{{ t('entry.edited_note') }}</p>
+  {% endif %}
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      document.querySelectorAll(".segment-stepper").forEach(function (stepper) {
+        var photos = Array.from(stepper.querySelectorAll(".stepper-photo"));
+        var counter = stepper.querySelector(".stepper-counter");
+        var index = 0;
+
+        function render() {
+          photos.forEach(function (p, i) { p.style.display = i === index ? "block" : "none"; });
+          counter.textContent = (index + 1) + " / " + photos.length;
+        }
+
+        stepper.querySelector(".stepper-prev").addEventListener("click", function () {
+          index = (index - 1 + photos.length) % photos.length;
+          render();
+        });
+        stepper.querySelector(".stepper-next").addEventListener("click", function () {
+          index = (index + 1) % photos.length;
+          render();
+        });
+      });
+    });
+  </script>
+{% endif %}
+
+{% endblock %}

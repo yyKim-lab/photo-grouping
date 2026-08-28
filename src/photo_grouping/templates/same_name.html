@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} — same person? — Photo Grouping{% endblock %}
+{% block content %}
+
+<div style="max-width: 620px; margin: 0 auto;">
+  <h1>{{ t('same_name.title', n=clusters|length, name=name) }}</h1>
+  <p class="muted">
+    {{ t('same_name.body', kind=(t('same_name.people_word') if kind == 'face' else t('same_name.places_word'))) }}
+  </p>
+
+  <div class="grid" style="margin: 1.5rem 0;">
+    {% for cluster in clusters %}
+      <a class="card" href="{{ url_for('cluster_detail', kind=kind, cluster_id=cluster.id) }}">
+        {% if kind == 'face' %}
+          <img src="{{ url_for('face_crop_for_cluster', cluster_id=cluster.id) }}" alt="" loading="lazy">
+        {% else %}
+          <img src="{{ url_for('place_thumb', cluster_id=cluster.id) }}" alt="" loading="lazy">
+        {% endif %}
+        <div class="label">
+          <div class="count">{{ t('count.photos', count=cluster.instance_count) }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center;">
+    <form method="post" action="{{ url_for('merge_same_name', kind=kind, name=name) }}" style="margin:0;">
+      <input type="hidden" name="next" value="{{ next_url or url_for('queue') }}">
+      <button class="primary" type="submit">{{ t('same_name.yes_merge') }}</button>
+    </form>
+    <a class="btn" href="{{ url_for('queue') }}">{{ t('same_name.keep_separate') }}</a>
+  </div>
+</div>
+
+{% endblock %}

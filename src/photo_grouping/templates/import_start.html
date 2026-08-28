@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Import — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('nav.import') }}</h1>
+
+{% if pending %}
+  <!-- Persisted server-side (not tied to any one browser tab) so this
+       shows up here even if the tab that started the import is long
+       gone — see migration 0009. -->
+  <div class="notice">
+    <span>
+      {{ t('import.pending_notice') }}
+    </span>
+    <span class="spacer"></span>
+    <!-- Same-tab on purpose (unlike "Start import" below): a
+         method="post" form with target="_blank" turned out to be
+         unreliable cross-browser in practice — observed degrading the
+         request to a bodyless GET and 405ing instead of opening a new
+         tab at all. This step doesn't need a new tab anyway: it either
+         finishes right here, or (not ready yet) lands on the picking
+         page, which has its own polling — either way is forward
+         progress, not a lost page. -->
+    <form id="finish-form" method="post" action="{{ url_for('import_continue') }}">
+      <input type="hidden" name="session_id" value="{{ pending.session_id }}">
+      <input type="hidden" name="picker_uri" value="{{ pending.picker_uri }}">
+      <button class="primary" type="submit">{{ t('import.finish_pending') }}</button>
+    </form>
+    <script>
+      // Announce over BroadcastChannel before navigating away: if the
+      // original picking tab (the one holding the actual window.open()
+      // handle on Google's picker) is still open somewhere, this is the
+      // only way to reach it and have IT close that tab — this page has
+      // no handle of its own to close anything with. See
+      // import_picking.html for the listening side.
+      document.getElementById("finish-form").addEventListener("submit", function () {
+        if (typeof BroadcastChannel === "undefined") return;
+        try {
+          new BroadcastChannel("photo-import").postMessage({
+            type: "picker-done",
+            sessionId: {{ pending.session_id | tojson }},
+          });
+        } catch (err) { /* best effort */ }
+      });
+    </script>
+  </div>
+{% endif %}
+
+<!-- Two equal-weight options, stacked as a list (not side-by-side cards —
+     tried that first, but a card grid reads as picking one of two products
+     rather than two ways into the same thing). Google Photos used to be
+     the only real path here (a full h1 + button), with "import from this
+     device" tucked into a single muted sentence above it, easy to miss;
+     now each option gets the same heading level, the same description
+     treatment, and the same full-width button — neither reads as the
+     "main" flow, which one's better just depends on where the user's
+     photos already are. -->
+<div style="max-width:640px; margin-top:1.25rem;">
+  <div style="padding:1.25rem 0; border-bottom:1px solid var(--border);">
+    <h2 style="margin-top:0;">{{ t('import.start_title') }}</h2>
+    <p class="muted" style="font-size:.9rem;">{{ t('import.start_body') }}</p>
+
+    {% if client_secret_missing %}
+      <p class="muted" style="font-size:.9rem;">{{ t('import.google_missing_body') }}</p>
+      <a class="btn primary" href="{{ url_for('settings_connect_page') }}">{{ t('settings.manage_connections') }}</a>
+    {% else %}
+      <!-- Same-tab, automatic — no target="_blank". That was tried (per user
+           request) to keep this page intact as a fallback, but in practice it
+           required manually finding/switching to a new tab instead of just
+           going there, which defeated the point. Not needed anyway: the
+           pending session is persisted server-side (migration 0009), so
+           /import always offers to resume it from any tab regardless of
+           whether this particular tab survives. -->
+      <form method="post" action="{{ url_for('import_start') }}">
+        <button class="primary" type="submit">{{ t('import.start_button') }}</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div style="padding:1.25rem 0;">
+    <h2 style="margin-top:0;">{{ t('import.local_title') }}</h2>
+    <p class="muted" style="font-size:.9rem;">{{ t('import.local_body') }}</p>
+    <a class="btn primary" href="{{ url_for('import_local_form') }}">{{ t('import.start_button') }}</a>
+  </div>
+</div>
+
+{% endblock %}

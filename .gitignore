@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.db
+*.db-journal
+.DS_Store
+.venv/
+
+# Session-local dev-server launch config for the Claude Code preview tool —
+# machine-specific, not needed to run the app.
+.claude/
+
+# Google OAuth client secret + cached tokens — never commit these.
+secrets/
+
+# The real photo library lives here: the SQLite database, downloaded
+# originals, face-embedding caches, Takeout extracts — all real personal
+# data, never commit any of it.
+data/

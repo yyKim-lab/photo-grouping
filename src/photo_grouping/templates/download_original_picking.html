@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Download original — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('download.picking_title') }}</h1>
+
+{% if not_ready %}
+  <div class="notice">
+    <span>{{ t('import.picking_not_ready') }}</span>
+  </div>
+{% endif %}
+
+<p class="muted" style="max-width:520px;">
+  {{ t('download.picking_body') }}
+</p>
+
+<p style="margin:1rem 0;">
+  <a id="open-picker-link" class="btn primary" href="{{ picker_uri }}" target="_blank" rel="noopener noreferrer">{{ t('import.open_picker') }}</a>
+</p>
+
+<form id="fetch-form" method="post" action="{{ url_for('download_original_fetch', photo_id=photo_id) }}">
+  <input type="hidden" name="session_id" value="{{ session_id }}">
+  <input type="hidden" name="picker_uri" value="{{ picker_uri }}">
+  <button class="primary" type="submit">{{ t('download.picking_button') }}</button>
+  <span id="poll-status" class="muted" style="margin-left:.6rem;"></span>
+</form>
+
+<p class="muted" style="font-size:.85rem; margin-top:1rem;">
+  <a href="{{ url_for('photo_detail', photo_id=photo_id) }}">{{ t('download.back_to_photo') }}</a>
+</p>
+
+<script>
+  // Mirrors import_picking.html's polling/close logic — see that file's
+  // comments for why a plain setTimeout loop alone isn't reliable
+  // (background-tab throttling) and why window.open() (not a plain
+  // target="_blank" link) is needed to get a handle this page can close
+  // once picking is done.
+  (function () {
+    var sessionId = {{ session_id | tojson }};
+    var statusEl = document.getElementById("poll-status");
+    var form = document.getElementById("fetch-form");
+    var openPickerLink = document.getElementById("open-picker-link");
+    var stopped = false;
+    var timer = null;
+    var pickerWindow = null;
+    var i18n = {
+      downloading: {{ t('download.picking_status_downloading') | tojson }},
+      expired: {{ t('download.picking_status_expired') | tojson }},
+      ready: {{ t('download.picking_status_selection_detected') | tojson }},
+      waiting: {{ t('download.picking_status_waiting') | tojson }},
+    };
+
+    openPickerLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      pickerWindow = window.open(openPickerLink.href, "photo_picker_download");
+    });
+
+    function closePickerWindow() {
+      if (pickerWindow && !pickerWindow.closed) {
+        try { pickerWindow.close(); } catch (err) { /* best effort */ }
+      }
+    }
+
+    form.addEventListener("submit", function () {
+      stopped = true;
+      closePickerWindow();
+      statusEl.textContent = i18n.downloading;
+    });
+
+    function scheduleNext(delayMs) {
+      clearTimeout(timer);
+      if (stopped) return;
+      timer = setTimeout(poll, delayMs);
+    }
+
+    function poll() {
+      if (stopped) return;
+      fetch("{{ url_for('download_original_status', photo_id=photo_id) }}?session_id=" + encodeURIComponent(sessionId))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (stopped) return;
+          if (data && data.expired) {
+            stopped = true;
+            closePickerWindow();
+            statusEl.textContent = i18n.expired;
+          } else if (data && data.ready) {
+            stopped = true;
+            statusEl.textContent = i18n.ready;
+            closePickerWindow();
+            form.submit();
+          } else {
+            statusEl.textContent = i18n.waiting;
+            scheduleNext(3000);
+          }
+        })
+        .catch(function () { scheduleNext(3000); });
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") poll();
+    });
+    window.addEventListener("focus", poll);
+    window.addEventListener("pageshow", function (e) {
+      if (e.persisted) poll();
+    });
+
+    poll();
+  })();
+</script>
+
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="empty">
+  <h1>{{ t('error.title') }}</h1>
+  <p>{{ message }}</p>
+  <p style="margin-top:1.5rem;"><a class="btn" href="{{ url_for('index') }}">{{ t('common.back_to_albums') }}</a></p>
+</div>
+{% endblock %}

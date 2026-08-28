@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Autobio — {{ start_date }} to {{ end_date }} — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ start_date }} &ndash; {{ end_date }}</h1>
+<p class="muted">
+  <a href="{{ url_for('autobio_index') }}">{{ t('summary.all_entries') }}</a>
+</p>
+
+{% if not summary %}
+  <p class="muted" style="margin-top:1.5rem;">{{ t('summary.nothing_yet') }}</p>
+  <form method="post" action="{{ url_for('autobio_generate_range') }}" style="margin-top:1rem;">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
+    <button class="primary" type="submit">{{ t('summary.generate') }}</button>
+  </form>
+  <p class="muted" style="font-size:.85rem; margin-top:.5rem; max-width:520px;">{{ t('summary.generate_hint') }}</p>
+{% else %}
+  <form method="post" action="{{ url_for('autobio_summary_save', start_date=start_date, end_date=end_date) }}"
+        style="margin-top:1rem;">
+    <textarea name="text" rows="18"
+              style="width:100%; max-width:720px; font: inherit; padding:.75rem; border-radius:8px;
+                     border:1px solid var(--border); background:var(--bg); color:var(--text);
+                     resize:vertical;">{{ summary.text }}</textarea>
+    <div style="display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.75rem; align-items:center;">
+      <button class="primary" type="submit">{{ t('summary.save') }}</button>
+      <span class="muted" style="font-size:.85rem;">{{ t('summary.export') }}</span>
+      <a class="btn" href="{{ url_for('autobio_summary_export', start_date=start_date, end_date=end_date, fmt='md') }}">.md</a>
+      <a class="btn" href="{{ url_for('autobio_summary_export', start_date=start_date, end_date=end_date, fmt='txt') }}">.txt</a>
+      <a class="btn" href="{{ url_for('autobio_summary_export', start_date=start_date, end_date=end_date, fmt='docx') }}">.docx</a>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('autobio_generate_range') }}" style="margin-top:1rem;"
+        onsubmit="return confirm({{ t('summary.regenerate_confirm') | tojson }});">
+    <input type="hidden" name="start_date" value="{{ start_date }}">
+    <input type="hidden" name="end_date" value="{{ end_date }}">
+    <button type="submit">{{ t('summary.regenerate') }}</button>
+  </form>
+{% endif %}
+
+{% endblock %}

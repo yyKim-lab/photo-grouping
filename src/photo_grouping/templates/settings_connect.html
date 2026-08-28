@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Connect your accounts — Photo Grouping{% endblock %}
+{% block content %}
+
+<p class="muted">
+  <a href="{{ url_for('settings_page') }}">{{ t('shared.back_to_settings') }}</a>
+</p>
+
+<h1>{{ t('settings.connect_heading') }}</h1>
+<p class="muted" style="max-width:560px;">{{ t('settings.connect_intro') }}</p>
+
+<!-- Google Photos -->
+<div class="card" style="max-width:560px; padding:1rem 1.1rem; margin-top:1rem;">
+  <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
+    <strong>{{ t('settings.google_heading') }}</strong>
+    {% if google_configured %}
+      <span class="badge" style="background:#d7f0da; color:#1f6b2c;">{{ t('settings.connected_badge') }}</span>
+      {% if google_email %}<span class="muted" style="font-size:.85rem;">{{ google_email }}</span>{% endif %}
+      <span style="flex:1;"></span>
+      <button type="button" class="btn" style="font-size:.85rem; padding:.4rem .7rem;"
+              onclick="toggleCredentialForm('google-form')">{{ t('settings.reconnect') }}</button>
+    {% else %}
+      <span class="badge">{{ t('settings.not_connected_badge') }}</span>
+    {% endif %}
+  </div>
+
+  <div id="google-form" style="{{ 'display:none;' if google_configured }} margin-top:.6rem;">
+    <p class="muted" style="font-size:.85rem; margin:.5rem 0;">
+      {{ t('settings.google_body') }}
+      <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">{{ t('settings.google_help_link') }}</a>
+    </p>
+    <form method="post" action="{{ url_for('settings_google_credentials_save') }}" enctype="multipart/form-data"
+          style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+      <input type="file" name="client_secret_file" accept="application/json,.json" required>
+      <button class="primary" type="submit" style="font-size:.85rem; padding:.4rem .7rem;">{{ t('settings.save') }}</button>
+    </form>
+  </div>
+</div>
+
+<!-- Anthropic -->
+<div class="card" style="max-width:560px; padding:1rem 1.1rem; margin-top:.85rem;">
+  <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
+    <strong>{{ t('settings.anthropic_heading') }}</strong>
+    {% if anthropic_configured %}
+      <span class="badge" style="background:#d7f0da; color:#1f6b2c;">{{ t('settings.connected_badge') }}</span>
+      <span style="flex:1;"></span>
+      <button type="button" class="btn" style="font-size:.85rem; padding:.4rem .7rem;"
+              onclick="toggleCredentialForm('anthropic-form')">{{ t('settings.reconnect') }}</button>
+    {% else %}
+      <span class="badge">{{ t('settings.not_connected_badge') }}</span>
+    {% endif %}
+  </div>
+
+  <div id="anthropic-form" style="{{ 'display:none;' if anthropic_configured }} margin-top:.6rem;">
+    <p class="muted" style="font-size:.85rem; margin:.5rem 0;">
+      {{ t('settings.anthropic_body') }}
+      <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">{{ t('settings.anthropic_help_link') }}</a>
+    </p>
+    <form method="post" action="{{ url_for('settings_anthropic_key_save') }}" style="display:flex; flex-wrap:wrap; gap:.5rem;">
+      <input type="password" name="anthropic_api_key" autocomplete="off" placeholder="{{ t('settings.api_key_placeholder') }}" style="flex:1;">
+      <button class="primary" type="submit" style="font-size:.85rem; padding:.4rem .7rem;">{{ t('settings.save') }}</button>
+    </form>
+  </div>
+</div>
+
+<!-- OpenAI -->
+<div class="card" style="max-width:560px; padding:1rem 1.1rem; margin-top:.85rem;">
+  <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
+    <strong>{{ t('settings.openai_heading') }}</strong>
+    {% if openai_configured %}
+      <span class="badge" style="background:#d7f0da; color:#1f6b2c;">{{ t('settings.connected_badge') }}</span>
+      <span style="flex:1;"></span>
+      <button type="button" class="btn" style="font-size:.85rem; padding:.4rem .7rem;"
+              onclick="toggleCredentialForm('openai-form')">{{ t('settings.reconnect') }}</button>
+    {% else %}
+      <span class="badge">{{ t('settings.not_connected_badge') }}</span>
+    {% endif %}
+  </div>
+
+  <div id="openai-form" style="{{ 'display:none;' if openai_configured }} margin-top:.6rem;">
+    <p class="muted" style="font-size:.85rem; margin:.5rem 0;">
+      {{ t('settings.openai_body') }}
+      <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">{{ t('settings.openai_help_link') }}</a>
+    </p>
+    <form method="post" action="{{ url_for('settings_openai_key_save') }}" style="display:flex; flex-wrap:wrap; gap:.5rem;">
+      <input type="password" name="openai_api_key" autocomplete="off" placeholder="{{ t('settings.api_key_placeholder') }}" style="flex:1;">
+      <button class="primary" type="submit" style="font-size:.85rem; padding:.4rem .7rem;">{{ t('settings.save') }}</button>
+    </form>
+  </div>
+</div>
+
+<div style="max-width:560px; margin-top:1.1rem;">
+  <strong style="font-size:.92rem;">{{ t('settings.provider_heading') }}</strong>
+  <p class="muted" style="font-size:.85rem; margin:.35rem 0 .6rem;">{{ t('settings.provider_body') }}</p>
+  <form method="post" action="{{ url_for('settings_llm_provider_save') }}">
+    <select name="llm_provider" onchange="this.form.submit()"
+            style="font: inherit; padding:.55rem .7rem; border-radius:8px;
+                   border:1px solid var(--border); background:var(--bg); color:var(--text);">
+      <option value="" {{ 'selected' if not settings.llm_provider }}>{{ t('settings.provider_auto') }}</option>
+      <option value="anthropic" {{ 'selected' if settings.llm_provider == 'anthropic' }}>{{ t('settings.provider_anthropic') }}</option>
+      <option value="openai" {{ 'selected' if settings.llm_provider == 'openai' }}>{{ t('settings.provider_openai') }}</option>
+    </select>
+  </form>
+</div>
+
+<script>
+  function toggleCredentialForm(id) {
+    var el = document.getElementById(id);
+    el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+  }
+</script>
+
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Import is the one thing you'd want right after opening the app that
+     isn't already its own nav tab — Photos/Groups above cover the
+     time-browsing and grouping entry points, so this row doesn't repeat
+     them. -->
+<div style="display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+  <a class="btn primary" href="{{ url_for('import_start_page') }}">{{ t('index.import_google') }}</a>
+  <a class="btn" href="{{ url_for('import_local_form') }}">{{ t('index.import_device') }}</a>
+</div>
+
+<h1>{{ t('index.title') }}</h1>
+<p class="muted">
+  {{ t('count.photos', count=counts.photo) }} · {{ t('count.face_clusters', count=counts.face_cluster) }} ·
+  {{ t('count.place_clusters', count=counts.location_cluster) }}
+  {% if queue_length %}
+    · <a href="{{ url_for('queue') }}">{{ t('index.waiting_to_label', n=queue_length) }}</a>
+  {% endif %}
+  {% if excluded_count %}
+    · <a href="{{ url_for('excluded') }}">{{ t('index.hidden_count', n=excluded_count) }}</a>
+  {% endif %}
+</p>
+
+{% if duplicates %}
+  <!-- Same name on several clusters means the user already told us these
+       are one person; that's a stronger merge signal than any similarity
+       score, so it gets surfaced rather than waiting to be noticed. -->
+  {% set examples = duplicates[:3] | map(attribute='name') | join(', ') %}
+  {% if duplicates|length > 3 %}{% set examples = examples + ', …' %}{% endif %}
+  <p style="background: var(--warn-bg); color: var(--warn-text); padding: .7rem .9rem;
+            border-radius: 8px; font-size: .9rem;">
+    {{ t('index.duplicate_warning', count=duplicates|length, examples=examples) }}
+    <a href="{{ url_for('review_duplicates') }}">{{ t('index.review_and_merge') }}</a>
+  </p>
+{% endif %}
+
+<h2>{{ t('index.people_heading') }}</h2>
+{% if albums.people %}
+  <div class="grid">
+    {% for album in albums.people %}
+      <a class="card" href="{{ url_for('cluster_detail', kind='face', cluster_id=album.ids[0]) }}">
+        <img src="{{ url_for('face_crop_for_cluster', cluster_id=album.ids[0]) }}" alt="" loading="lazy">
+        <div class="label">
+          {{ album.name }}
+          {% if album.ids|length > 1 %}<span class="badge">{{ t('common.groups_count_badge', n=album.ids|length) }}</span>{% endif %}
+          <div class="count">{{ t('count.photos', count=album.instance_count) }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  {% set start_labeling_link = '<a href="' + url_for('queue') + '">' + t('index.start_labeling') + '</a>' %}
+  <p class="muted">{{ t('index.no_named_people', start_labeling_link=start_labeling_link) | safe }}</p>
+{% endif %}
+
+<h2>{{ t('index.places_heading') }}</h2>
+{% if albums.places %}
+  <div class="grid">
+    {% for album in albums.places %}
+      <a class="card" href="{{ url_for('cluster_detail', kind='place', cluster_id=album.ids[0]) }}">
+        <img src="{{ url_for('place_thumb', cluster_id=album.ids[0]) }}" alt="" loading="lazy">
+        <div class="label">
+          {{ album.name }}
+          {% if album.ids|length > 1 %}<span class="badge">{{ t('common.groups_count_badge', n=album.ids|length) }}</span>{% endif %}
+          <div class="count">{{ t('count.photos', count=album.instance_count) }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="muted">{{ t('index.no_named_places') }}</p>
+{% endif %}
+
+<h2>{{ t('index.uncategorized_people_heading') }} <span class="muted">({{ uncategorized.people|length }})</span></h2>
+{% if uncategorized.people %}
+  <div class="grid">
+    {% for cluster in uncategorized.people[:24] %}
+      <a class="card" href="{{ url_for('cluster_detail', kind='face', cluster_id=cluster.id) }}">
+        <img src="{{ url_for('face_crop_for_cluster', cluster_id=cluster.id) }}" alt="" loading="lazy">
+        <div class="label">
+          {% if cluster.status == 'not_sure' %}<span class="badge">{{ t('common.not_sure_badge') }}</span>{% endif %}
+          <div class="count">{{ t('count.photos', count=cluster.instance_count) }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+  {% if uncategorized.people|length > 24 %}
+    <p class="muted">{{ t('index.and_more', n=uncategorized.people|length - 24) }}</p>
+  {% endif %}
+{% else %}
+  <p class="muted">{{ t('index.nothing_uncategorized') }}</p>
+{% endif %}
+
+<h2>{{ t('index.uncategorized_places_heading') }} <span class="muted">({{ uncategorized.places|length }})</span></h2>
+{% if uncategorized.places %}
+  <div class="grid">
+    {% for cluster in uncategorized.places[:24] %}
+      <a class="card" href="{{ url_for('cluster_detail', kind='place', cluster_id=cluster.id) }}">
+        <img src="{{ url_for('place_thumb', cluster_id=cluster.id) }}" alt="" loading="lazy">
+        <div class="label">
+          {% if cluster.status == 'not_sure' %}<span class="badge">{{ t('common.not_sure_badge') }}</span>{% endif %}
+          <div class="count">{{ t('count.photos', count=cluster.instance_count) }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+  {% if uncategorized.places|length > 24 %}
+    <p class="muted">{{ t('index.and_more', n=uncategorized.places|length - 24) }}</p>
+  {% endif %}
+{% else %}
+  <p class="muted">{{ t('index.nothing_uncategorized') }}</p>
+{% endif %}
+
+{% endblock %}

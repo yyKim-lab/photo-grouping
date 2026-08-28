@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Import — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('import.done_title') }}</h1>
+
+<p>
+  {{ t('import.done_picked', count=picked_count) }} &middot;
+  {{ t('import.done_imported', count=result.imported) }} &middot;
+  {{ t('import.done_already_had', count=result.skipped_already_imported) }} &middot;
+  {{ t('import.done_faces', count=result.faces_detected) }}
+</p>
+
+{% if result.failed %}
+  <p class="muted">{{ t('import.done_failed_count', count=result.failed|length) }}</p>
+  <ul>
+    {% for filename, error in result.failed %}
+      <li>{{ filename }}: {{ error }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+{% if source == "local" %}
+  <p class="muted" style="max-width:560px; margin-top:1rem;">
+    {{ t('import.done_local_note') }}
+  </p>
+{% else %}
+  {% set cmd1 = '<code>scripts/ingest.py backfill-gps --takeout-dir …</code>' %}
+  {% set cmd2 = '<code>cluster-locations</code>' %}
+  <p class="muted" style="max-width:560px; margin-top:1rem;">
+    {{ t('import.done_google_note', cmd1=cmd1, cmd2=cmd2) | safe }}
+  </p>
+{% endif %}
+
+<p style="margin-top:1.5rem; display:flex; flex-wrap:wrap; gap:.6rem;">
+  <a class="btn" href="{{ url_for('import_local_form') if source == 'local' else url_for('import_start_page') }}">{{ t('import.more_button') }}</a>
+  <a class="btn primary" href="{{ url_for('index') }}">{{ t('common.back_to_albums') }}</a>
+</p>
+
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Timeline — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('timeline.title') }}</h1>
+<p class="muted">{{ t('count.photos', count=total) }} &middot; {{ t('timeline.page_of', page=page, total_pages=total_pages) }}</p>
+
+<form method="post" action="{{ url_for('events_bulk_add') }}" id="timeline-form">
+  <input type="hidden" name="next" value="{{ url_for('timeline', page=page) }}">
+
+  <!-- Sticky so the bulk-assign action stays reachable while scrolling a
+       long page of photos — selecting across dozens of thumbnails and then
+       having to scroll back up defeats the point of a bulk action. -->
+  <!-- flex-wrap so the (translation-length-dependent) hint text drops to
+       its own line under tight width instead of squeezing the group-name
+       field down toward nothing — it used to have no floor of its own and
+       would shrink to ~130px on an ordinary desktop width, since a flex
+       item's default auto min-width doesn't protect it from a sibling
+       that refuses to shrink or wrap. -->
+  <div style="position:sticky; top:0; background:var(--bg); padding:.75rem 0; z-index:5;
+              display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; border-bottom:1px solid var(--border); margin-bottom:1rem;">
+    <div class="autocomplete-wrap" style="flex:1 1 180px; max-width:250px; min-width:180px;">
+      <input type="text" name="event_name" id="event-name-input" autocomplete="off"
+             placeholder="{{ t('timeline.group_placeholder') }}" style="width:100%;">
+    </div>
+    <!-- Typing shows matching existing groups (custom dropdown — see
+         initAutocomplete() in base.html); a name that doesn't match
+         anything still works, it's created new. -->
+    <button class="primary" type="submit">{{ t('timeline.add_to_group') }}</button>
+    <span class="muted" style="font-size:.85rem;">{{ t('timeline.select_hint') }}</span>
+  </div>
+
+  {% for group in groups %}
+    {% set gi = loop.index0 %}
+    <div class="tl-group">
+      <div class="tl-group-header">
+        <input type="checkbox" class="tl-group-select" data-group="{{ gi }}"
+               aria-label="{{ t('timeline.select_all_from', date=group.date_label) }}">
+        <span class="tl-group-date">{{ group.date_label }}</span>
+        {% if group.place_name %}<span class="tl-group-place">{{ group.place_name }}</span>{% endif %}
+        <span class="muted tl-group-count">{{ t('count.photos', count=group.photos|length) }}</span>
+      </div>
+      <div class="grid">
+        {% for photo in group.photos %}
+          <div class="card" style="position:relative;">
+            <input type="checkbox" name="photo_id" value="{{ photo.photo_id }}"
+                   class="tl-photo-check" data-group="{{ gi }}">
+            <img src="{{ url_for('photo_thumb', photo_id=photo.photo_id) }}"
+                 data-full="{{ url_for('photo_full', photo_id=photo.photo_id) }}"
+                 data-caption="{{ (photo.taken_at or '')[:10] }}"
+                 onclick="openLightbox(this)" alt="" loading="lazy">
+            <div class="label">
+              <div class="count">
+                {{ (photo.taken_at or '')[:10] }}
+                &middot; <a href="{{ url_for('photo_detail', photo_id=photo.photo_id) }}">{{ t('common.edit') }}</a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</form>
+
+{% if total_pages > 1 %}
+  <div style="display:flex; flex-wrap:wrap; gap:.6rem; justify-content:center; margin-top:1.5rem;">
+    {% if page > 1 %}
+      <a class="btn" href="{{ url_for('timeline', page=page-1) }}">{{ t('timeline.newer') }}</a>
+    {% endif %}
+    {% if page < total_pages %}
+      <a class="btn" href="{{ url_for('timeline', page=page+1) }}">{{ t('timeline.older') }}</a>
+    {% endif %}
+  </div>
+{% endif %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    initPhotoMultiSelect(document.getElementById("timeline-form"));
+    initAutocomplete("event-name-input", {{ event_names | tojson }});
+  });
+</script>
+
+{% endblock %}

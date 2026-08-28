@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Hidden — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('hidden.title') }}</h1>
+<p class="muted">{{ t('hidden.subtitle') }}</p>
+
+{% set groups = [('people', t('index.people_heading'), 'face'), ('places', t('index.places_heading'), 'place')] %}
+{% set any_hidden = excluded.people or excluded.places %}
+
+{% if any_hidden %}
+  {% for key, heading, kind in groups %}
+    {% if excluded[key] %}
+      <h2>{{ heading }} <span class="muted">({{ excluded[key]|length }})</span></h2>
+      <div class="grid">
+        {% for cluster in excluded[key] %}
+          <div class="card">
+            {% if kind == 'face' %}
+              <img src="{{ url_for('face_crop_for_cluster', cluster_id=cluster.id) }}" alt="" loading="lazy">
+            {% else %}
+              <img src="{{ url_for('place_thumb', cluster_id=cluster.id) }}" alt="" loading="lazy">
+            {% endif %}
+            <div class="label">
+              {{ cluster.name or t('cluster.unnamed') }}
+              <div class="count">{{ t('count.photos', count=cluster.instance_count) }}</div>
+              <form method="post" action="{{ url_for('restore_cluster', kind=kind, cluster_id=cluster.id) }}"
+                    style="margin-top:.4rem;">
+                <input type="hidden" name="next" value="{{ url_for('excluded') }}">
+                <button type="submit" style="padding:.3rem .6rem; font-size:.8rem;">{{ t('hidden.restore') }}</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <div class="empty">
+    <p>{{ t('hidden.nothing_hidden') }}</p>
+    <p class="muted" style="font-size:.9rem;">{{ t('hidden.hint') }}</p>
+    <p style="margin-top:1.5rem;"><a class="btn" href="{{ url_for('index') }}">{{ t('common.back_to_albums') }}</a></p>
+  </div>
+{% endif %}
+
+{% endblock %}

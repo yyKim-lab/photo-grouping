@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Download original — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('photo.download_original') }}</h1>
+<p class="muted">
+  <a href="{{ url_for('photo_detail', photo_id=photo_id) }}">{{ t('download.back_to_photo') }}</a>
+</p>
+
+<p class="muted" style="max-width:520px; margin-top:1rem;">
+  <strong>{{ photo.original_filename }}</strong>
+  — {{ t('download.taken_label', date=(photo.taken_at_override or photo.taken_at or '')[:16]) }}
+</p>
+
+<div class="notice" style="max-width:520px;">
+  <span>
+    {{ t('download.missing_notice', path=photo.original_storage_path) }}
+  </span>
+</div>
+
+{% if client_secret_missing %}
+  <div class="notice" style="max-width:520px;">
+    <span>{{ t('download.oauth_missing_body') }}</span>
+    <span class="spacer"></span>
+    <a class="btn primary" href="{{ url_for('settings_connect_page') }}">{{ t('settings.manage_connections') }}</a>
+  </div>
+{% else %}
+  <p class="muted" style="max-width:520px;">
+    {{ t('download.picker_fallback_body') }}
+  </p>
+  <form method="post" action="{{ url_for('download_original_session_start', photo_id=photo_id) }}" style="margin-top:1rem;">
+    <button class="primary" type="submit">{{ t('download.start_button') }}</button>
+  </form>
+{% endif %}
+
+{% endblock %}

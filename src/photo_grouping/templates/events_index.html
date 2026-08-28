@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Groups — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('nav.groups') }}</h1>
+{% set browse_link = '<a href="' + url_for('timeline') + '">' + t('groups_page.browse_link_text') + '</a>' %}
+<p class="muted">{{ t('groups_page.subtitle', browse_link=browse_link) | safe }}</p>
+
+{% if events %}
+  <div class="grid" style="margin-top:1rem;">
+    {% for event in events %}
+      <a class="card" href="{{ url_for('event_detail', event_id=event.id) }}">
+        <img src="{{ url_for('event_cover', event_id=event.id) }}" alt="" loading="lazy">
+        <div class="label">
+          {{ event.name }}
+          <div class="count">{{ t('count.photos', count=event.instance_count) }}</div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty">
+    <p>{{ t('groups_page.empty') }}</p>
+    <p style="margin-top:1.5rem;"><a class="btn primary" href="{{ url_for('timeline') }}">{{ t('groups_page.browse_link_text') }}</a></p>
+  </div>
+{% endif %}
+
+{% endblock %}

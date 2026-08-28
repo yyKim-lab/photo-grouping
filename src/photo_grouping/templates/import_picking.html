@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Import — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('import.picking_title') }}</h1>
+
+{% if not_ready %}
+  <div class="notice">
+    <span>{{ t('import.picking_not_ready') }}</span>
+  </div>
+{% endif %}
+
+<p class="muted" style="max-width:520px;">
+  {{ t('import.picking_body') }}
+</p>
+
+<p style="margin:1rem 0;">
+  <a id="open-picker-link" class="btn primary" href="{{ picker_uri }}" target="_blank" rel="noopener noreferrer">{{ t('import.open_picker') }}</a>
+</p>
+
+<form id="continue-form" method="post" action="{{ url_for('import_continue') }}">
+  <input type="hidden" name="session_id" value="{{ session_id }}">
+  <input type="hidden" name="picker_uri" value="{{ picker_uri }}">
+  <button class="primary" type="submit">{{ t('import.picking_continue_button') }}</button>
+  <span id="poll-status" class="muted" style="margin-left:.6rem;"></span>
+</form>
+
+<script>
+  // Auto-continue once Google reports the picker session is done, so the
+  // manual "continue" click is a fallback rather than the only way forward.
+  // Stops polling once this page navigates away (form submit or ready).
+  //
+  // A plain setTimeout loop alone isn't reliable here: the picker opens in
+  // a new tab, backgrounding this one, and browsers throttle (sometimes
+  // fully suspend) timers in a hidden tab — observed in practice as a
+  // session where this loop never fired once in 45s of real use. So this
+  // also polls immediately whenever the tab regains attention
+  // (visibilitychange/focus/pageshow), which is exactly the moment the
+  // user switches back after finishing in the picker tab, regardless of
+  // whether the background timer ran at all while it was hidden.
+  (function () {
+    var sessionId = {{ session_id | tojson }};
+    var statusEl = document.getElementById("poll-status");
+    var form = document.getElementById("continue-form");
+    var openPickerLink = document.getElementById("open-picker-link");
+    var stopped = false;
+    var timer = null;
+    var pickerWindow = null;
+    var i18n = {
+      expired: {{ t('import.picking_status_expired') | tojson }},
+      ready: {{ t('import.picking_status_selection_detected') | tojson }},
+      waiting: {{ t('import.picking_status_waiting') | tojson }},
+    };
+
+    // Opened via window.open() (capturing a reference) instead of letting
+    // the <a target="_blank"> navigate normally — that's the only way to
+    // get a handle we can call .close() on once picking is done, so the
+    // "Done! Continue in the other app or device" tab doesn't just sit
+    // there needing to be closed by hand. Deliberately no 'noopener' on
+    // this call (unlike the tag's own fallback attributes, kept for if JS
+    // doesn't run): noopener returns a null reference by design, which
+    // would defeat the whole point. Google's own picker domain is trusted
+    // content, so the minor tabnabbing risk noopener normally guards
+    // against doesn't really apply here.
+    openPickerLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      pickerWindow = window.open(openPickerLink.href, "photo_picker");
+    });
+
+    function closePickerWindow() {
+      if (pickerWindow && !pickerWindow.closed) {
+        try { pickerWindow.close(); } catch (err) { /* best effort */ }
+      }
+    }
+
+    // The window handle above only exists in THIS tab's memory — if the
+    // import instead finishes via the /import hub's "Finish that import"
+    // banner (a different tab entirely, with no way to reach into this
+    // one's JS state), that path has no handle to close and the picker
+    // tab is left sitting there. BroadcastChannel bridges that: any tab
+    // can announce "this session is done," and this tab — if it's still
+    // open and holding the handle — reacts by closing it.
+    var importChannel = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      importChannel = new BroadcastChannel("photo-import");
+      importChannel.onmessage = function (e) {
+        if (e.data && e.data.type === "picker-done" && e.data.sessionId === sessionId) {
+          closePickerWindow();
+        }
+      };
+    }
+
+    function announcePickerDone() {
+      if (importChannel) importChannel.postMessage({ type: "picker-done", sessionId: sessionId });
+    }
+
+    form.addEventListener("submit", function () { stopped = true; closePickerWindow(); });
+
+    function scheduleNext(delayMs) {
+      clearTimeout(timer);
+      if (stopped) return;
+      timer = setTimeout(poll, delayMs);
+    }
+
+    function poll() {
+      if (stopped) return;
+      fetch("{{ url_for('import_status') }}?session_id=" + encodeURIComponent(sessionId))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (stopped) return;
+          if (data && data.expired) {
+            stopped = true;
+            closePickerWindow();
+            announcePickerDone();
+            statusEl.textContent = i18n.expired;
+          } else if (data && data.ready) {
+            stopped = true;
+            statusEl.textContent = i18n.ready;
+            // form.submit() (unlike a real user submission or
+            // requestSubmit()) does NOT fire the form's 'submit' event —
+            // so the close-on-submit listener above wouldn't run for this,
+            // the far more common, auto-detected path. Close explicitly
+            // here too rather than relying on that listener alone.
+            closePickerWindow();
+            announcePickerDone();
+            form.submit();
+          } else {
+            statusEl.textContent = i18n.waiting;
+            scheduleNext(3000);
+          }
+        })
+        .catch(function () {
+          // Transient network hiccup — the manual button still works, so
+          // just try again rather than giving up on the page.
+          scheduleNext(3000);
+        });
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") poll();
+    });
+    window.addEventListener("focus", poll);
+    window.addEventListener("pageshow", function (e) {
+      if (e.persisted) poll(); // restored from back/forward cache
+    });
+
+    poll(); // check right away, don't wait for the first scheduled tick
+  })();
+</script>
+
+{% endblock %}

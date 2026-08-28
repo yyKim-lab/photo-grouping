@@ -1,0 +1,164 @@
+{% macro suggestion_chips(suggestions, input_id) %}
+  {% if suggestions %}
+    <p class="muted" style="font-size:.82rem; margin:.6rem 0 .3rem;">{{ t('queue.suggestions_label') }}</p>
+    <div style="display:flex; gap:.4rem; flex-wrap:wrap; justify-content:center;">
+      {% for s in suggestions %}
+        <button type="button" class="chip" onclick="useSuggestion('{{ input_id }}', this.dataset.value)"
+                data-value="{{ s.text }}">
+          {{ s.text }}
+          <span class="chip-src">{{ s.source }}</span>
+        </button>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}
+{% extends "base.html" %}
+{% block title %}{{ cluster.name or t('cluster.unnamed_cluster_title') }} — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>
+  {{ cluster.name or (t('cluster.unnamed_person') if kind == 'face' else t('cluster.unnamed_place')) }}
+  {% if cluster.status == 'not_sure' %}<span class="badge">{{ t('common.not_sure_badge') }}</span>{% endif %}
+</h1>
+<p class="muted">
+  {{ t('count.photos', count=photos|length) }}
+  {% if kind == 'place' %}
+    {% if suggestions %}&middot; {{ suggestions[0].text }}{% endif %}
+    &middot; <a href="https://www.openstreetmap.org/?mlat={{ cluster.centroid_lat }}&mlon={{ cluster.centroid_lng }}#map=16/{{ cluster.centroid_lat }}/{{ cluster.centroid_lng }}"
+                target="_blank" rel="noopener noreferrer">{{ t('queue.view_on_map') }}</a>
+  {% endif %}
+</p>
+
+<!-- §4.3: naming and corrections are available from any entry point,
+     including an already-named album — corrections aren't restricted to
+     unlabeled clusters. -->
+<form method="post" action="{{ url_for('name_cluster', kind=kind, cluster_id=cluster.id) }}"
+      style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin: 1rem 0 2rem; max-width:520px;">
+  <input type="text" name="name" id="detail-name" value="{{ cluster.name or '' }}"
+         placeholder="{{ t('queue.who_is_this') if kind == 'face' else t('queue.what_is_this_place') }}">
+  <input type="hidden" name="next" value="{{ url_for('cluster_detail', kind=kind, cluster_id=cluster.id) }}">
+  <button class="primary" type="submit">{{ t('cluster.rename') if cluster.name else t('cluster.save_name') }}</button>
+</form>
+<div style="max-width:520px; margin:-1.25rem 0 1.5rem;">
+  {{ suggestion_chips(suggestions, 'detail-name') }}
+</div>
+
+<form method="post" action="{{ url_for('set_cluster_description', kind=kind, cluster_id=cluster.id) }}"
+      style="max-width:520px; margin-bottom:2rem;">
+  <textarea name="description" rows="2" placeholder="{{ t('common.description_placeholder') }}"
+            style="width:100%; font: inherit; padding:.6rem .7rem; border-radius:8px;
+                   border:1px solid var(--border); background:var(--bg); color:var(--text);
+                   resize:vertical;">{{ cluster.description or '' }}</textarea>
+  <!-- No size override — matches event_detail.html/photo_detail.html's
+       identical "Save description" button, which use the plain default
+       button size. This one used to render smaller than its two siblings
+       for no apparent reason. -->
+  <button type="submit" style="margin-top:.5rem;">{{ t('common.save_description') }}</button>
+</form>
+
+{% if candidates %}
+  <!-- Merge candidates, ranked by centroid similarity. The clustering
+       threshold is deliberately conservative to avoid merging relatives,
+       so one person split across two clusters is expected — the other half
+       is usually right here at the top. -->
+  <h2>{{ t('cluster.same_person_heading') }}</h2>
+  <form method="post" action="{{ url_for('merge_clusters', kind=kind, cluster_id=cluster.id) }}">
+    <div class="grid">
+      {% for candidate in candidates %}
+        <label class="card" style="cursor:pointer; position:relative;">
+          <input type="checkbox" name="other_id" value="{{ candidate.id }}"
+                 style="position:absolute; top:.5rem; left:.5rem; width:1.15rem; height:1.15rem; z-index:2;">
+          <img src="{{ url_for('face_crop_for_cluster', cluster_id=candidate.id) }}" alt="" loading="lazy">
+          <div class="label">
+            {{ candidate.name or t('cluster.unnamed') }}
+            <div class="count">
+              {{ t('count.photos', count=candidate.instance_count) }}
+              &middot; {{ '%.2f'|format(candidate.similarity) }}
+            </div>
+          </div>
+        </label>
+      {% endfor %}
+    </div>
+    <p class="muted" style="font-size:.82rem; margin:.6rem 0 0;">{{ t('cluster.similarity_note') }}</p>
+    <button class="primary" type="submit" style="margin-top:.8rem;">{{ t('cluster.merge_selected') }}</button>
+  </form>
+{% endif %}
+
+{% if kind == 'face' %}
+  <!-- Photos is the default: browsing your own album should show the
+       actual pictures, not cropped faces — crops are for judging "is this
+       the same person?" during split, not for looking at your photos. The
+       toggle keeps split reachable without making it the default view. -->
+  <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:1rem; margin-top:2rem;">
+    <h2 style="margin:0;">{{ t('cluster.heading_in_cluster', view=(t('nav.photos') if view == 'photos' else t('cluster.faces_view'))) }}</h2>
+    <div style="display:flex; flex-wrap:wrap; gap:.4rem;">
+      <a class="btn" href="{{ url_for('cluster_detail', kind=kind, cluster_id=cluster.id, view='photos') }}"
+         style="{{ 'background:var(--accent); color:var(--accent-text); border-color:var(--accent);' if view == 'photos' }} padding:.3rem .7rem; font-size:.85rem;">
+        {{ t('nav.photos') }}
+      </a>
+      <a class="btn" href="{{ url_for('cluster_detail', kind=kind, cluster_id=cluster.id, view='faces') }}"
+         style="{{ 'background:var(--accent); color:var(--accent-text); border-color:var(--accent);' if view == 'faces' }} padding:.3rem .7rem; font-size:.85rem;">
+        {{ t('cluster.faces_view') }}
+      </a>
+    </div>
+  </div>
+{% else %}
+  <h2>{{ t('cluster.heading_in_cluster', view=t('nav.photos')) }}</h2>
+{% endif %}
+
+{% if kind == 'face' and view == 'faces' %}
+  <!-- Split (§4.3): tick the faces that don't belong and move them out. -->
+  <form method="post" action="{{ url_for('split_cluster', cluster_id=cluster.id) }}">
+    <div class="grid">
+      {% for face in faces %}
+        <label class="card" style="cursor:pointer; position:relative;">
+          <input type="checkbox" name="face_instance_id" value="{{ face.face_instance_id }}"
+                 style="position:absolute; top:.5rem; left:.5rem; width:1.15rem; height:1.15rem; z-index:2;">
+          <img src="{{ url_for('face_crop', face_instance_id=face.face_instance_id) }}" alt="" loading="lazy">
+          <div class="label"><div class="count">{{ (face.taken_at or '')[:10] }}</div></div>
+        </label>
+      {% endfor %}
+    </div>
+    {% if faces|length > 1 %}
+      <button type="submit" style="margin-top:.8rem;">{{ t('cluster.move_out') }}</button>
+      <span class="muted" style="font-size:.82rem;"> {{ t('cluster.move_out_note') }}</span>
+    {% endif %}
+  </form>
+{% else %}
+  <!-- Click any photo for a full-screen view — arrow keys / on-screen
+       arrows move through every photo in this grid, Escape closes. -->
+  <div class="grid">
+    {% for photo in photos %}
+      <div class="card">
+        <img src="{{ url_for('photo_thumb', photo_id=photo.photo_id) }}"
+             data-full="{{ url_for('photo_full', photo_id=photo.photo_id) }}"
+             data-caption="{{ (photo.taken_at or '')[:10] }}"
+             onclick="openLightbox(this)" alt="" loading="lazy">
+        <div class="label">
+          <div class="count">
+            {{ (photo.taken_at or '')[:10] }}
+            &middot; <a href="{{ url_for('photo_detail', photo_id=photo.photo_id) }}">{{ t('common.edit') }}</a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<div style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border);">
+  {% if cluster.excluded_at %}
+    <form method="post" action="{{ url_for('restore_cluster', kind=kind, cluster_id=cluster.id) }}">
+      <input type="hidden" name="next" value="{{ url_for('cluster_detail', kind=kind, cluster_id=cluster.id) }}">
+      <button class="primary" type="submit">{{ t('cluster.unhide') }}</button>
+      <span class="muted" style="font-size:.85rem;"> {{ t('cluster.unhide_note') }}</span>
+    </form>
+  {% else %}
+    <form method="post" action="{{ url_for('exclude_cluster', kind=kind, cluster_id=cluster.id) }}">
+      <input type="hidden" name="next" value="{{ url_for('index') }}">
+      <button type="submit">{{ t('cluster.hide_person') if kind == 'face' else t('cluster.hide_place') }}</button>
+      <span class="muted" style="font-size:.85rem;"> {{ t('cluster.hide_note') }}</span>
+    </form>
+  {% endif %}
+</div>
+
+{% endblock %}

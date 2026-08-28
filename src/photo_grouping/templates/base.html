@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Photo Grouping{% endblock %}</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f6f6f7;
+    --border: #e2e2e5;
+    --text: #1a1a1c;
+    --muted: #6b6b73;
+    --accent: #2b6cb0;
+    --accent-text: #ffffff;
+    --warn-bg: #fff4e0;
+    --warn-text: #7a4b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17171a;
+      --surface: #212126;
+      --border: #33333a;
+      --text: #ececf0;
+      --muted: #9b9ba5;
+      --accent: #5a9bd8;
+      --accent-text: #10131a;
+      --warn-bg: #3a2e18;
+      --warn-text: #f0c78a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 1.5rem;
+    padding: .9rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--bg);
+    /* Above #nav-backdrop (z-index 40, a sibling below <header> in the
+       DOM) on purpose: header's own position+z-index makes it a stacking
+       context, so .nav-links (the drawer) nested inside it — even at its
+       own z-index:50 — was being compared as part of THIS element's
+       stacking position, not its own. With header below the backdrop
+       (its old z-index:10), the whole drawer rendered under the dark
+       overlay and was unclickable, no matter how high nav-links' own
+       z-index was set. */
+    z-index: 45;
+  }
+  header a { color: var(--muted); text-decoration: none; font-weight: 500; }
+  header a:hover { color: var(--text); }
+  header a.active { color: var(--accent); font-weight: 700; }
+  header .brand { font-weight: 700; color: var(--text); }
+  /* Same row as the rest of the header at wide widths — a plain flex
+     child, spaced the same way the nav links used to be as direct
+     children of <header> before they were wrapped in this container. */
+  .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+
+  /* Material's Navigation Drawer pattern: below the breakpoint, the nav
+     destinations move off the app bar into a hamburger-triggered drawer
+     instead of staying inline and wrapping — 8 destinations in a
+     `display:flex` row with no wrap-awareness were wrapping *per
+     character* on narrow/CJK-heavy renders instead of moving to the
+     drawer, which is what actually broke first. */
+  .nav-toggle {
+    display: none; margin-left: auto; padding: .5rem; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+    flex-direction: column; gap: 4px; align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem; flex-shrink: 0;
+  }
+  .nav-toggle span { display: block; width: 1.1rem; height: 2px; background: var(--text); border-radius: 1px; }
+  .nav-backdrop { display: none; }
+
+  @media (max-width: 760px) {
+    .nav-toggle { display: flex; }
+    .nav-links {
+      position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+      width: min(260px, 80vw); background: var(--bg); border-left: 1px solid var(--border);
+      flex-direction: column; align-items: stretch; gap: 0; padding: 1rem;
+      transform: translateX(100%); transition: transform .2s ease;
+      overflow-y: auto;
+    }
+    .nav-links.open { transform: translateX(0); }
+    .nav-links a {
+      padding: .75rem .5rem; border-bottom: 1px solid var(--border);
+    }
+    .nav-backdrop.open {
+      display: block; position: fixed; inset: 0; z-index: 40;
+      background: rgba(0,0,0,.4);
+    }
+  }
+  main { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+  footer {
+    max-width: 1000px; margin: 0 auto; padding: 1.25rem 1.25rem 2rem;
+    border-top: 1px solid var(--border); text-align: center;
+    color: var(--muted); font-size: .82rem;
+  }
+  footer a { color: var(--muted); }
+  footer a:hover { color: var(--text); }
+  h1 { font-size: 1.4rem; margin: 0 0 1rem; }
+  h2 { font-size: 1.05rem; margin: 2rem 0 .75rem; }
+  .muted { color: var(--muted); }
+  .grid {
+    display: grid; gap: .85rem;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; text-decoration: none; color: inherit;
+    display: block; transition: border-color .15s;
+  }
+  /* Cards are clickable links but, before this, gave no visual feedback
+     at all on hover — every other clickable control in the app does. */
+  .card:hover { border-color: var(--accent); }
+  .card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--border); }
+  .card .label { padding: .5rem .6rem; font-size: .85rem; }
+  .card .label .count { color: var(--muted); font-size: .78rem; }
+  .badge {
+    display: inline-block; font-size: .7rem; padding: .1rem .4rem;
+    border-radius: 4px; background: var(--warn-bg); color: var(--warn-text);
+    font-weight: 600; vertical-align: middle;
+  }
+  /* Small keyboard-key badge, for hinting a number/letter shortcut next to
+     the button it triggers (see queue.html's 1/2/3 labeling shortcuts). */
+  .kbd {
+    display: inline-block; font: 700 .7rem/1 monospace; padding: .1rem .35rem;
+    border-radius: 4px; border: 1px solid var(--border); background: var(--bg);
+    color: var(--muted); margin-left: .35rem; vertical-align: middle;
+  }
+  button, .btn {
+    font: inherit; padding: .55rem 1.1rem; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    cursor: pointer; text-decoration: none; display: inline-block;
+  }
+  button.primary, .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:hover, .btn:hover { filter: brightness(1.08); }
+  /* Pressed state, distinct from hover's brightness bump — before this,
+     clicking gave no feedback of its own beyond the (already-applied)
+     hover state, so a click didn't visually register as a click. */
+  button:active, .btn:active, .chip:active { filter: brightness(.94); }
+  button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  /* One focus ring for every interactive element, instead of leaving it
+     to each browser's own default outline — inconsistent across
+     browsers, and easy to lose against --bg in dark mode. */
+  a:focus-visible, button:focus-visible, .btn:focus-visible,
+  input:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  input[type=text] {
+    font: inherit; padding: .55rem .7rem; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    width: 100%;
+    /* Floor so a text field sitting in a flex row never gets crushed down
+       toward zero by a sibling that won't shrink (e.g. a `flex:1` field
+       next to fixed-width buttons or running text — the classic flexbox
+       "min-width:auto" trap). Small enough to still fit the narrowest
+       .grid card (minmax(130px, 1fr)). Fields that need more room than
+       this set their own larger min-width inline (see timeline.html's
+       group-name field, photo_detail.html's place-name field). */
+    min-width: 120px;
+  }
+  .empty { text-align: center; padding: 4rem 1rem; color: var(--muted); }
+  .notice {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: .7rem .9rem; margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: .75rem; font-size: .9rem;
+  }
+  .notice .spacer { flex: 1; }
+  .chip {
+    font: inherit; font-size: .85rem; padding: .3rem .6rem; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    cursor: pointer; display: inline-flex; align-items: baseline; gap: .35rem;
+    text-decoration: none;
+  }
+  /* .chip is used on both <button class="chip"> (autocomplete suggestions)
+     and <a class="chip"> (date chips) — button:hover above already covers
+     the button case via the plain `button` selector, but an <a> matches
+     neither `button:hover` nor `.btn:hover`, so it got no hover feedback
+     at all without this. */
+  .chip:hover { filter: brightness(1.08); }
+  .chip .chip-src { font-size: .7rem; color: var(--muted); }
+
+  /* Custom autocomplete dropdown (initAutocomplete()) — not a native
+     <datalist>: that popup is drawn by browser chrome outside normal page
+     layout, and was observed positioning itself completely wrong in an
+     embedded/split browser pane. This one is a plain positioned div, so
+     it always renders exactly where the CSS says. */
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-list {
+    position: absolute; top: calc(100% + .3rem); left: 0; right: 0; z-index: 20;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.15); max-height: 220px; overflow-y: auto;
+  }
+  .autocomplete-item { padding: .5rem .7rem; font-size: .88rem; cursor: pointer; }
+  .autocomplete-item:hover { background: var(--surface); }
+
+  /* Click-to-fullscreen (any .grid holding img[data-full]) */
+  .grid img[data-full] { cursor: zoom-in; }
+  #lightbox {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.92); align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  #lightbox img {
+    max-width: min(92vw, 1400px); max-height: 82vh; object-fit: contain;
+    border-radius: 4px;
+  }
+  #lightbox .lightbox-bar {
+    color: #eee; font-size: .85rem; margin-top: .75rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  #lightbox .lightbox-nav {
+    /* Inset from the top (not a full top:0-to-bottom:0 strip) so this
+       full-height click target doesn't sit underneath — and steal clicks
+       from — the close button in the top corner. z-index is a second,
+       belt-and-suspenders guard for the same problem: whichever paints
+       last in DOM order would otherwise win overlapping clicks regardless
+       of the inset. */
+    position: fixed; top: 4rem; bottom: 0; width: 15%; min-width: 60px;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; color: #fff; font-size: 2.2rem;
+    cursor: pointer; opacity: .55; transition: opacity .15s;
+    z-index: 1;
+  }
+  #lightbox .lightbox-nav:hover { opacity: 1; background: rgba(255,255,255,.06); }
+  #lightbox .lightbox-nav.prev { left: 0; }
+  #lightbox .lightbox-nav.next { right: 0; }
+  #lightbox .lightbox-close {
+    position: fixed; top: 1rem; right: 1.25rem; background: none; border: none;
+    color: #fff; font-size: 1.8rem; cursor: pointer; opacity: .7; line-height: 1;
+    z-index: 2;
+  }
+  #lightbox .lightbox-close:hover { opacity: 1; }
+
+  /* Grouped timeline (date headers, per-group select-all) */
+  .tl-group { margin-bottom: 1.75rem; }
+  .tl-group-header {
+    display: flex; align-items: baseline; gap: .6rem;
+    padding: .4rem 0; margin-bottom: .6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .tl-group-header input[type=checkbox] { width: 1.25rem; height: 1.25rem; cursor: pointer; }
+  .tl-group-date { font-weight: 600; }
+  .tl-group-place { color: var(--muted); font-size: .9rem; }
+  .tl-group-count { margin-left: auto; font-size: .8rem; }
+  .tl-photo-check {
+    position: absolute; top: .5rem; left: .5rem; z-index: 2;
+    width: 1.25rem; height: 1.25rem;
+  }
+  /* Bigger, easier-to-hit tap target on touch devices, where "shift-click"
+     isn't available and precision is worse — matches the long-press/drag
+     select flow those devices get instead. Also applied to the per-group
+     "select all" checkbox, which used to stay small even on touch — the
+     same reasoning applies to it just as much as to the per-photo ones. */
+  @media (pointer: coarse) {
+    .tl-photo-check, .tl-group-header input[type=checkbox] { width: 1.5rem; height: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">Photo Grouping</span>
+  <nav id="nav-links" class="nav-links">
+    <a href="{{ url_for('index') }}" class="{{ 'active' if nav_active == 'albums' }}">{{ t('nav.albums') }}</a>
+    <a href="{{ url_for('timeline') }}" class="{{ 'active' if nav_active == 'photos' }}">{{ t('nav.photos') }}</a>
+    <a href="{{ url_for('events_index') }}" class="{{ 'active' if nav_active == 'groups' }}">{{ t('nav.groups') }}</a>
+    <a href="{{ url_for('queue') }}" class="{{ 'active' if nav_active == 'queue' }}">{{ t('nav.queue') }}</a>
+    <a href="{{ url_for('autobio_daily_index') }}" class="{{ 'active' if nav_active == 'diary' }}">✨ {{ t('nav.diary') }}</a>
+    <a href="{{ url_for('autobio_index') }}" class="{{ 'active' if nav_active == 'autobio' }}">✨ {{ t('nav.autobio') }}</a>
+    <a href="{{ url_for('import_start_page') }}" class="{{ 'active' if nav_active == 'import' }}">{{ t('nav.import') }}</a>
+    <a href="{{ url_for('settings_page') }}" class="{{ 'active' if nav_active == 'settings' }}">{{ t('nav.settings') }}</a>
+  </nav>
+  <!-- Hamburger — only visible below the drawer breakpoint (see
+       .nav-toggle's media query). Toggles .nav-links/.nav-backdrop's
+       "open" class; see initNavDrawer() below. -->
+  <button type="button" id="nav-toggle" class="nav-toggle" aria-label="{{ t('nav.menu') }}"
+          aria-controls="nav-links" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+</header>
+<div id="nav-backdrop" class="nav-backdrop"></div>
+<script>
+  // Nav drawer (Material's pattern for a top app bar past its breakpoint):
+  // toggled by the hamburger, closed by the backdrop, Escape, or picking a
+  // destination. The CSS media query is what actually decides whether the
+  // drawer is even reachable (.nav-toggle is display:none above the
+  // breakpoint) — this JS is inert and harmless at wide widths since
+  // nothing ever calls openDrawer() there.
+  (function () {
+    var toggle = document.getElementById('nav-toggle');
+    var links = document.getElementById('nav-links');
+    var backdrop = document.getElementById('nav-backdrop');
+
+    function openDrawer() {
+      links.classList.add('open');
+      backdrop.classList.add('open');
+      toggle.setAttribute('aria-expanded', 'true');
+    }
+    function closeDrawer() {
+      links.classList.remove('open');
+      backdrop.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    toggle.addEventListener('click', function () {
+      if (links.classList.contains('open')) closeDrawer(); else openDrawer();
+    });
+    backdrop.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeDrawer();
+    });
+    // Picking a destination navigates away (a real page load, not an SPA
+    // route), so this isn't strictly needed for correctness — just avoids
+    // a flash of the still-open drawer over the outgoing page.
+    links.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', closeDrawer);
+    });
+  })();
+</script>
+<main>
+{% if merged %}
+  <!-- Shown after a merge instead of navigating into the merged album:
+       working through a list shouldn't be interrupted, so the album is a
+       link to take or ignore. -->
+  <div class="notice">
+    <span>{{ t('shared.merged_notice', name=merged.name) }}</span>
+    <span class="spacer"></span>
+    <a class="btn" href="{{ url_for('cluster_detail', kind=merged.kind, cluster_id=merged.id) }}">{{ t('shared.view_album') }}</a>
+  </div>
+{% endif %}
+{% block content %}{% endblock %}
+</main>
+
+<footer>
+  {{ t('footer.credit') }}
+  {% if github_url %} · <a href="{{ github_url }}" target="_blank" rel="noopener noreferrer">{{ t('footer.github_link') }}</a>{% endif %}
+</footer>
+
+<!-- Full-screen photo viewer. One instance per page; opened against
+     whichever .grid the clicked image lives in, so each grid on a page
+     (e.g. a merge-candidates grid and a photos grid) navigates independently. -->
+<div id="lightbox" onclick="if (event.target.id === 'lightbox') closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()" aria-label="{{ t('shared.close') }}">&times;</button>
+  <button class="lightbox-nav prev" onclick="lightboxStep(-1)" aria-label="{{ t('shared.previous') }}">&#8249;</button>
+  <button class="lightbox-nav next" onclick="lightboxStep(1)" aria-label="{{ t('shared.next') }}">&#8250;</button>
+  <img id="lightbox-img" src="" alt="">
+  <div class="lightbox-bar">
+    <span id="lightbox-caption"></span>
+    <span id="lightbox-counter"></span>
+  </div>
+</div>
+
+<script>
+  let __lightboxItems = [];
+  let __lightboxIndex = 0;
+
+  function openLightbox(imgEl) {
+    const grid = imgEl.closest('.grid') || document;
+    __lightboxItems = Array.from(grid.querySelectorAll('img[data-full]'));
+    __lightboxIndex = __lightboxItems.indexOf(imgEl);
+    document.getElementById('lightbox').style.display = 'flex';
+    document.addEventListener('keydown', __lightboxKeydown);
+    __renderLightbox();
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.removeEventListener('keydown', __lightboxKeydown);
+  }
+
+  function lightboxStep(delta) {
+    const n = __lightboxItems.length;
+    __lightboxIndex = (__lightboxIndex + delta + n) % n;
+    __renderLightbox();
+  }
+
+  function __renderLightbox() {
+    const el = __lightboxItems[__lightboxIndex];
+    document.getElementById('lightbox-img').src = el.dataset.full;
+    document.getElementById('lightbox-caption').textContent = el.dataset.caption || '';
+    document.getElementById('lightbox-counter').textContent =
+      (__lightboxIndex + 1) + ' / ' + __lightboxItems.length;
+  }
+
+  function __lightboxKeydown(e) {
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowLeft') lightboxStep(-1);
+    else if (e.key === 'ArrowRight') lightboxStep(1);
+  }
+</script>
+<script>
+  // Suggestions prefill the field rather than submitting: OCR misreads and
+  // map answers are both often close-but-wrong, so the user edits before saving.
+  function useSuggestion(inputId, value) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.value = value;
+    input.focus();
+    input.setSelectionRange(value.length, value.length);
+  }
+</script>
+<script>
+  // §4.2 voice typing: a mic button next to a text input that fills it in
+  // via the browser's own speech recognition — no server component, no
+  // bundled engine (the STT-engine choice the spec left open), just
+  // whatever the browser already has. Silently does nothing (no button
+  // appears) if the browser doesn't support it — typing still works.
+  function initVoiceInput(inputId, lang, micLabel) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) return;
+
+    micLabel = micLabel || 'Speak instead of typing';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn';
+    btn.title = micLabel;
+    btn.setAttribute('aria-label', micLabel);
+    btn.textContent = '🎤';
+    btn.style.marginLeft = '.4rem';
+    input.insertAdjacentElement('afterend', btn);
+
+    const recognition = new Recognition();
+    recognition.lang = lang || 'ko-KR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    let recognizing = false;
+
+    function reset() {
+      recognizing = false;
+      btn.classList.remove('primary');
+      btn.textContent = '🎤';
+    }
+
+    recognition.addEventListener('result', function (e) {
+      input.value = e.results[0][0].transcript.trim();
+      input.focus();
+    });
+    recognition.addEventListener('end', reset);
+    recognition.addEventListener('error', reset);
+
+    btn.addEventListener('click', function () {
+      if (recognizing) {
+        recognition.stop();
+        return;
+      }
+      recognizing = true;
+      btn.classList.add('primary');
+      btn.textContent = '⏺';
+      try {
+        recognition.start();
+      } catch (err) {
+        reset();
+      }
+    });
+  }
+</script>
+<script>
+  // Custom autocomplete — deliberately not a native <datalist>, which is
+  // rendered by browser chrome as a popup outside normal page layout and
+  // was observed positioning itself completely wrong in an embedded/
+  // split browser pane (see .autocomplete-list in the shared <style>
+  // above). `inputId`'s element must already sit inside an element with
+  // class="autocomplete-wrap" (position:relative) for the dropdown to
+  // anchor correctly.
+  function initAutocomplete(inputId, options) {
+    const input = document.getElementById(inputId);
+    if (!input || !options || !options.length) return;
+
+    const list = document.createElement('div');
+    list.className = 'autocomplete-list';
+    list.style.display = 'none';
+    input.insertAdjacentElement('afterend', list);
+
+    function render(filter) {
+      const q = filter.trim().toLowerCase();
+      const matches = q ? options.filter(function (o) { return o.toLowerCase().includes(q); }) : options;
+      if (!matches.length) {
+        list.style.display = 'none';
+        return;
+      }
+      list.innerHTML = '';
+      matches.slice(0, 8).forEach(function (name) {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = name;
+        // mousedown (not click): fires before the input's blur, so the
+        // list is still visible and hasn't been torn down by the blur
+        // handler when this runs.
+        item.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          input.value = name;
+          list.style.display = 'none';
+        });
+        list.appendChild(item);
+      });
+      list.style.display = 'block';
+    }
+
+    input.addEventListener('input', function () { render(input.value); });
+    input.addEventListener('focus', function () { render(input.value); });
+    input.addEventListener('blur', function () { list.style.display = 'none'; });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') list.style.display = 'none';
+    });
+  }
+</script>
+<script>
+  // Shift-click range select (desktop) + long-press-then-drag paint select
+  // (mobile) over a grid of `input[name=photo_id]` checkboxes, plus
+  // optional per-group "select all" checkboxes (class tl-group-select /
+  // tl-photo-check[data-group]) if the container has them. Selecting
+  // dozens of photos one tap at a time doesn't scale, and this mirrors how
+  // Google Photos' own picker behaves for both input styles.
+  function initPhotoMultiSelect(container) {
+    if (!container) return;
+    const boxSelector = 'input[type=checkbox][name=photo_id]';
+    const getBoxes = () => Array.from(container.querySelectorAll(boxSelector));
+    let lastIndex = null;
+
+    function syncGroupHeaders() {
+      container.querySelectorAll('.tl-group-select').forEach(function (groupBox) {
+        const g = groupBox.dataset.group;
+        const members = container.querySelectorAll('.tl-photo-check[data-group="' + g + '"]');
+        const checkedCount = Array.from(members).filter(function (m) { return m.checked; }).length;
+        groupBox.checked = members.length > 0 && checkedCount === members.length;
+        groupBox.indeterminate = checkedCount > 0 && checkedCount < members.length;
+      });
+    }
+
+    // Desktop: click a checkbox normally; shift-click extends the
+    // selection from the last-clicked checkbox to this one, matching its
+    // new checked state (so shift-click can paint on or off).
+    container.addEventListener('click', function (e) {
+      if (e.target.classList && e.target.classList.contains('tl-group-select')) return;
+      const box = e.target.closest(boxSelector);
+      if (!box) return;
+      const boxes = getBoxes();
+      const idx = boxes.indexOf(box);
+      if (e.shiftKey && lastIndex !== null) {
+        const start = Math.min(lastIndex, idx);
+        const end = Math.max(lastIndex, idx);
+        const target = box.checked;
+        for (let i = start; i <= end; i++) boxes[i].checked = target;
+      }
+      lastIndex = idx;
+      syncGroupHeaders();
+    });
+
+    // A group's own checkbox toggles every checkbox under it.
+    container.addEventListener('change', function (e) {
+      if (!e.target.classList.contains('tl-group-select')) return;
+      const g = e.target.dataset.group;
+      container.querySelectorAll('.tl-photo-check[data-group="' + g + '"]').forEach(function (box) {
+        box.checked = e.target.checked;
+      });
+    });
+
+    // Mobile: hold a photo card, then drag across others to paint the same
+    // selection state onto each — a plain tap-per-photo doesn't scale on
+    // a phone any better than it does on desktop without shift-click.
+    let pressTimer = null;
+    let dragMode = null; // true = selecting, false = deselecting, null = inactive
+    let suppressNextClick = false;
+    const LONG_PRESS_MS = 450;
+
+    container.addEventListener('touchstart', function (e) {
+      const card = e.target.closest('.card');
+      const box = card && card.querySelector(boxSelector);
+      if (!box) return;
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(function () {
+        dragMode = !box.checked;
+        box.checked = dragMode;
+        lastIndex = getBoxes().indexOf(box);
+        suppressNextClick = true;
+        syncGroupHeaders();
+        if (navigator.vibrate) navigator.vibrate(12);
+      }, LONG_PRESS_MS);
+    }, { passive: true });
+
+    container.addEventListener('touchmove', function (e) {
+      if (dragMode === null) { clearTimeout(pressTimer); return; }
+      e.preventDefault(); // we're painting selection, not scrolling
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const card = el && el.closest('.card');
+      const box = card && card.querySelector(boxSelector);
+      if (box && box.checked !== dragMode) {
+        box.checked = dragMode;
+        syncGroupHeaders();
+      }
+    }, { passive: false });
+
+    function endTouch() {
+      clearTimeout(pressTimer);
+      dragMode = null;
+    }
+    container.addEventListener('touchend', endTouch);
+    container.addEventListener('touchcancel', endTouch);
+
+    // A long-press-drag ends with a touchend that would otherwise also
+    // fire a synthetic click on whatever's under the finger — swallow just
+    // that one click so it doesn't undo the selection we just made.
+    container.addEventListener('click', function (e) {
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        if (e.target.closest(boxSelector) || e.target.closest('.card')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    }, true);
+
+    syncGroupHeaders();
+  }
+</script>
+</body>
+</html>

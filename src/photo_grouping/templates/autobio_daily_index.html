@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Diary — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('diary.title') }}</h1>
+<p class="muted" style="max-width:520px;">{{ t('diary.subtitle') }}</p>
+
+{% if llm_configured %}
+  <form method="post" action="{{ url_for('autobio_generate') }}"
+        style="display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; max-width:420px; margin:1rem 0;">
+    <input type="date" name="date" required style="flex:1; font: inherit; padding:.55rem .7rem;
+           border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+    <button class="primary" type="submit">{{ t('diary.generate') }}</button>
+  </form>
+
+  {% set autobio_link = '<a href="' + url_for('autobio_index') + '">' + t('nav.autobio') + '</a>' %}
+  <p class="muted" style="max-width:520px;">{{ t('diary.combine_hint', autobio_link=autobio_link) | safe }}</p>
+{% else %}
+  <div class="notice" style="margin-top:1rem;">
+    <span>{{ t('diary.llm_missing_body') }}</span>
+    <span class="spacer"></span>
+    <a class="btn primary" href="{{ url_for('settings_connect_page') }}">{{ t('settings.manage_connections') }}</a>
+  </div>
+{% endif %}
+
+<h2>{{ t('diary.settings_heading') }}</h2>
+<form method="post" action="{{ url_for('autobio_settings_save') }}"
+      onchange="this.submit()" style="display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin:.75rem 0;">
+  <input type="checkbox" name="show_unlabeled_nudge" id="show-unlabeled-nudge"
+         {{ 'checked' if settings.show_unlabeled_nudge }} style="width:1.05rem; height:1.05rem;">
+  <label for="show-unlabeled-nudge">{{ t('diary.nudge_label') }}</label>
+</form>
+
+<h2>{{ t('diary.entries_heading') }}</h2>
+{% if entries %}
+  <div style="display:flex; flex-direction:column; gap:.6rem; max-width:640px;">
+    {% for entry in entries %}
+      <a href="{{ url_for('autobio_entry', date=entry.date) }}" class="notice"
+         style="text-decoration:none; color:inherit; align-items:flex-start; flex-direction:column;">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; width:100%;">
+          <strong>{{ entry.date }}</strong>
+          {% if entry.is_edited %}<span class="badge">{{ t('diary.edited_badge') }}</span>{% endif %}
+          {% if entry.has_unlabeled %}<span class="badge">{{ t('diary.unlabeled_badge') }}</span>{% endif %}
+        </div>
+        <p class="muted" style="margin:.3rem 0 0; font-size:.85rem;">
+          {{ entry.final_text[:160] }}{% if entry.final_text|length > 160 %}…{% endif %}
+        </p>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="muted">{{ t('diary.empty') }}</p>
+{% endif %}
+
+{% endblock %}

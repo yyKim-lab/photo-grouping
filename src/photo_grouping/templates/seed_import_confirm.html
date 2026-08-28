@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Confirm seed faces — Photo Grouping{% endblock %}
+{% block content %}
+
+<h1>{{ t('seed.confirm_title', count=rows|length) }}</h1>
+<p class="muted" style="max-width:560px;">
+  {{ t('seed.confirm_body') }}
+</p>
+
+<form method="post" action="{{ url_for('seed_import_save') }}">
+  <input type="hidden" name="count" value="{{ rows|length }}">
+  <div class="grid">
+    {% for row in rows %}
+      <div class="card" style="padding:.6rem;">
+        <img src="{{ row.crop_data_uri }}" alt=""
+             style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; margin-bottom:.5rem;">
+        <input type="hidden" name="embedding_{{ loop.index0 }}" value="{{ row.embedding_b64 }}">
+        <input type="text" name="name_{{ loop.index0 }}" value="{{ row.guessed_name }}"
+               placeholder="{{ t('queue.who_is_this') }}" style="margin-bottom:.4rem;">
+        <label style="font-size:.82rem; display:flex; flex-wrap:wrap; align-items:center; gap:.4rem;">
+          <input type="checkbox" name="keep_{{ loop.index0 }}" checked>
+          {{ t('seed.save_this_one') }}
+        </label>
+      </div>
+    {% endfor %}
+  </div>
+  <button class="primary" type="submit" style="margin-top:1rem;">{{ t('seed.save_confirmed_button') }}</button>
+</form>
+
+{% endblock %}

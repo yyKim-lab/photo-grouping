@@ -1,0 +1,111 @@
+{% macro suggestion_chips(suggestions, input_id) %}
+  {% if suggestions %}
+    <p class="muted" style="font-size:.82rem; margin:.6rem 0 .3rem;">{{ t('queue.suggestions_label') }}</p>
+    <div style="display:flex; gap:.4rem; flex-wrap:wrap; justify-content:center;">
+      {% for s in suggestions %}
+        <button type="button" class="chip" onclick="useSuggestion('{{ input_id }}', this.dataset.value)"
+                data-value="{{ s.text }}">
+          {{ s.text }}
+          <span class="chip-src">{{ s.source }}</span>
+        </button>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}
+{% extends "base.html" %}
+{% block title %}Label queue — Photo Grouping{% endblock %}
+{% block content %}
+
+<p class="muted">{{ t('queue.remaining', count=remaining) }}</p>
+
+<div style="max-width: 460px; margin: 0 auto; text-align: center;">
+
+  {% if item.kind == 'face' %}
+    <h1>{{ t('queue.know_person') }}</h1>
+    <img src="{{ url_for('face_crop', face_instance_id=face.face_instance_id) }}"
+         alt="{{ t('queue.face_awaiting_name_alt') }}"
+         style="width: 100%; max-width: 340px; border-radius: 12px; border: 1px solid var(--border);">
+  {% else %}
+    <h1>{{ t('queue.know_place') }}</h1>
+    <div class="grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: .75rem;">
+      {% for photo in photos %}
+        <img src="{{ url_for('photo_thumb', photo_id=photo.photo_id) }}" alt=""
+             style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px;" loading="lazy">
+      {% endfor %}
+    </div>
+    <p class="muted" style="font-size:.85rem;">
+      {% if suggestions %}{{ suggestions[0].text }}{% else %}{{ t('queue.location_unknown') }}{% endif %}
+      &middot;
+      <a href="https://www.openstreetmap.org/?mlat={{ item.centroid_lat }}&mlon={{ item.centroid_lng }}#map=16/{{ item.centroid_lat }}/{{ item.centroid_lng }}"
+         target="_blank" rel="noopener noreferrer">{{ t('queue.view_on_map') }}</a>
+    </p>
+  {% endif %}
+
+  <p class="muted">
+    {{ t('queue.appears_in', count=item.instance_count) }}
+    {% if item.status == 'not_sure' %} &middot; <span class="badge">{{ t('queue.previously_not_sure') }}</span>{% endif %}
+    &middot; <a href="{{ url_for('cluster_detail', kind=item.kind, cluster_id=item.id) }}">{{ t('queue.see_all') }}</a>
+  </p>
+
+  <!-- "Yes" reveals the name field rather than navigating: §4.2 wants
+       naming to be one uninterrupted motion, not a page transition. -->
+  <div id="answer" style="margin-top: 1.25rem; display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap;">
+    <button class="primary" type="button" onclick="showNameInput()">{{ t('queue.yes') }}<span class="kbd">1</span></button>
+    <form id="not-sure-form" method="post" action="{{ url_for('not_sure', kind=item.kind, cluster_id=item.id) }}" style="margin:0;">
+      <button type="submit">{{ t('queue.not_sure') }}<span class="kbd">2</span></button>
+    </form>
+    <!-- Distinct from "Not sure": that means come back later, this means
+         never — a stranger in the background isn't a labeling task. -->
+    <form id="exclude-form" method="post" action="{{ url_for('exclude_cluster', kind=item.kind, cluster_id=item.id) }}" style="margin:0;">
+      <button type="submit">{{ t('queue.not_someone_i_know') if item.kind == 'face' else t('queue.not_a_place_i_care_about') }}<span class="kbd">3</span></button>
+    </form>
+  </div>
+  {% set hidden_link = '<a href="' + url_for('excluded') + '">' + t('queue.hidden_link_text') + '</a>' %}
+  <p class="muted" style="font-size:.8rem; margin-top:.6rem;">{{ t('queue.not_sure_help', hidden_link=hidden_link) | safe }}</p>
+
+  <form id="name-form" method="post" style="display:none; margin-top:1.25rem;"
+        action="{{ url_for('name_cluster', kind=item.kind, cluster_id=item.id) }}">
+    <input type="text" name="name" id="name-input" autocomplete="off"
+           placeholder="{{ t('queue.who_is_this') if item.kind == 'face' else t('queue.what_is_this_place') }}">
+    {{ suggestion_chips(suggestions, 'name-input') }}
+    <div style="display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.6rem;">
+      <button class="primary" type="submit" style="flex:1;">{{ t('queue.save') }}</button>
+      <button type="button" onclick="hideNameInput()">{{ t('queue.cancel') }}</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function showNameInput() {
+    document.getElementById('answer').style.display = 'none';
+    document.getElementById('name-form').style.display = 'block';
+    document.getElementById('name-input').focus();
+  }
+  function hideNameInput() {
+    document.getElementById('name-form').style.display = 'none';
+    document.getElementById('answer').style.display = 'flex';
+  }
+  // Number-key shortcuts for the three labeling actions (1=Yes, 2=Not sure,
+  // 3=the exclude option) — labeling is a high-repetition task, so a
+  // reach-for-the-mouse per decision adds up. Ignored while typing in a
+  // field (so typing "1" into the name field, or anywhere else on the
+  // page, doesn't accidentally trigger one) and while the name form is
+  // open (the numbers only mean something for the three-button screen).
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (document.getElementById('answer').style.display === 'none') return;
+    if (e.key === '1') { e.preventDefault(); showNameInput(); }
+    else if (e.key === '2') { e.preventDefault(); document.getElementById('not-sure-form').requestSubmit(); }
+    else if (e.key === '3') { e.preventDefault(); document.getElementById('exclude-form').requestSubmit(); }
+  });
+  // base.html defines initVoiceInput in a <script> block that renders
+  // *after* this content block, so it doesn't exist yet at parse time —
+  // deferring to DOMContentLoaded runs it once every script has loaded.
+  document.addEventListener('DOMContentLoaded', function () {
+    initVoiceInput('name-input', {{ speech_language | tojson }}, {{ t('shared.mic_tooltip') | tojson }});
+  });
+</script>
+
+{% endblock %}
