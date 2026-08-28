@@ -106,36 +106,6 @@ offers, so location data comes from a separate
 [Google Takeout](https://takeout.google.com) export (Google Photos only)
 matched back to already-imported photos by filename/timestamp.
 
-## Translation management (Crowdin)
-
-UI strings live in `locales/*.json` (`en.json` is the source of truth,
-the other five are translations) and can optionally be managed through
-[Crowdin](https://crowdin.com) instead of hand-editing each file.
-
-**One-time setup** (your own Crowdin account):
-
-1. Create a free Crowdin project, then note its **Project ID** and
-   generate a **Personal Access Token** (Settings → API on each).
-2. Install the CLI: `npm install -g @crowdin/cli`
-3. Export both as environment variables in your own shell:
-   ```bash
-   export CROWDIN_PROJECT_ID=your-project-id
-   export CROWDIN_PERSONAL_TOKEN=your-token
-   ```
-   `crowdin.yml` already has the file mapping configured.
-
-**Day to day:**
-
-```bash
-crowdin upload sources    # push locales/en.json changes to Crowdin
-crowdin download          # pull finished translations back down
-```
-
-After a download, restart the app — no code change needed, `i18n.py`
-reads the JSON files fresh at startup. Don't hand-edit the five
-translated files once this is wired up; the next download will overwrite
-them.
-
 ## Design notes
 
 - **Face embeddings**: InsightFace (SCRFD detector + ArcFace, 512-d

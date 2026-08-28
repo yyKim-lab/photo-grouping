@@ -28,10 +28,8 @@ import json
 from pathlib import Path
 
 # Source of truth lives in locales/*.json (one file per language, English
-# is authoritative — see crowdin.yml / README.md "Translation management
-# (Crowdin)"). Loaded once at import time into the same TRANSLATIONS shape
-# this module has always exposed, so nothing downstream (t(), the tests,
-# the context processor) needs to change for the Crowdin migration.
+# is authoritative). Loaded once at import time into the same
+# TRANSLATIONS shape this module has always exposed.
 _LOCALES_DIR = Path(__file__).resolve().parents[2] / "locales"
 
 
